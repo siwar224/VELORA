@@ -3,7 +3,8 @@ import { siteUrl } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: { userAgent: "*", allow: "/" },
+    // The admin dashboard is private (its pages also carry noindex).
+    rules: { userAgent: "*", allow: "/", disallow: "/admin" },
     sitemap: new URL("/sitemap.xml", siteUrl).toString(),
   };
 }

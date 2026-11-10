@@ -1,0 +1,150 @@
+/* Admin stylesheet. Loaded only by the (admin) root layout: the public site never
+   ships it, and it only scans admin + shadcn/ui files for classes. */
+@import "tailwindcss" source(none);
+@source "../../../components/ui";
+@source "../../../components/admin";
+@source "../../../app/(admin)";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Brand palette (same values as the public site). */
+:root {
+  --espresso: #1e120b;
+  --caramel: #b8742e;
+  --caramel-deep: #8a541e; /* ≥ 5:1 on cream/milk for small text */
+  --cream: #f2e6d3;
+  --milk: #fbf6ee;
+
+  /* shadcn/ui theme mapped onto the brand. Light content area, espresso chrome. */
+  --radius: 0.625rem;
+  --background: #f7f0e4;
+  --foreground: var(--espresso);
+  --card: var(--milk);
+  --card-foreground: var(--espresso);
+  --popover: var(--milk);
+  --popover-foreground: var(--espresso);
+  --primary: var(--espresso);
+  --primary-foreground: var(--milk);
+  --secondary: #efe3cf;
+  --secondary-foreground: var(--espresso);
+  --muted: #efe3cf;
+  --muted-foreground: #5e4a3c; /* 7:1 on milk */
+  --accent: #f3e4cc;
+  --accent-foreground: var(--espresso);
+  --destructive: #a3341f;
+  --border: #e3d3bb;
+  --input: #d8c5a8;
+  --ring: var(--caramel-deep);
+
+  /* Restrained brown / caramel / cream chart palette. */
+  --chart-1: var(--caramel);
+  --chart-2: var(--espresso);
+  --chart-3: #d9b48a;
+  --chart-4: var(--caramel-deep);
+  --chart-5: #6b4a35;
+
+  /* Sidebar: dark espresso. */
+  --sidebar: var(--espresso);
+  --sidebar-foreground: var(--cream);
+  --sidebar-muted: rgb(242 230 211 / 0.68); /* ≥ 7:1 on espresso */
+  --sidebar-accent: rgb(242 230 211 / 0.08);
+  --sidebar-border: rgb(242 230 211 / 0.1);
+}
+
+@theme inline {
+  --color-espresso: var(--espresso);
+  --color-caramel: var(--caramel);
+  --color-caramel-deep: var(--caramel-deep);
+  --color-cream: var(--cream);
+  --color-milk: var(--milk);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-serif: var(--font-cormorant), "Times New Roman", serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+  /* Clearly visible, on-brand keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--caramel-deep);
+    outline-offset: 2px;
+  }
+}
+
+/* Small uppercase tracked label (same as the public site). */
+@utility eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* The few enter/exit utilities the shadcn components reference (normally from
+   tw-animate-css, not installed): a short fade + zoom, nothing else. */
+@keyframes admin-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes admin-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+@utility animate-in {
+  animation: admin-in 160ms ease-out;
+}
+[data-slot="sheet-content"][data-state="open"] {
+  animation: admin-sheet-in 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

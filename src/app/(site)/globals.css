@@ -1,5 +1,9 @@
 @import "tailwindcss";
 @import "lenis/dist/lenis.css";
+/* Public site only: don't generate CSS for the admin dashboard's classes. */
+@source not "../../components/admin";
+@source not "../../components/ui";
+@source not "../(admin)";
 
 /* Brand palette. Mirrored into Tailwind below, so `bg-espresso`, `text-cream` etc. work. */
 :root {
