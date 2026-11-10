@@ -6,6 +6,7 @@ export default function Menu() {
   return (
     <section
       id="menu"
+      data-nav-theme="light"
       aria-labelledby="menu-heading"
       className="bg-milk px-5 py-28 text-espresso md:px-10 md:py-40 lg:px-20"
     >

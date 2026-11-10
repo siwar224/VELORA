@@ -106,13 +106,19 @@ export default function ScrollStage() {
         // Pad to the exact total so scroll length maps 1:1 onto the config.
         tl.set({}, {}, total);
 
-        if (debug) {
-          tl.eventCallback("onUpdate", () => {
-            const t = tl.time();
-            const phase = t <= LAST ? "" : t <= LAST + T.pushIn.frames ? " · push-in" : " · wipe";
+        const wipeStart = LAST + T.pushIn.frames;
+        const html = document.documentElement;
+        tl.eventCallback("onUpdate", () => {
+          const t = tl.time();
+          // Nav: no bar over the frames; glass from the moment the cream wipe starts.
+          const navState = t >= wipeStart ? "solid" : "clear";
+          if (html.dataset.nav !== navState) html.dataset.nav = navState;
+
+          if (debug) {
+            const phase = t <= LAST ? "" : t < wipeStart ? " · push-in" : " · wipe";
             debug.textContent = `frame ${Math.round(seq.frame) + 1}/${FRAME_COUNT}${phase}`;
-          });
-        }
+          }
+        });
       });
       ScrollTrigger.refresh();
     });
@@ -121,6 +127,7 @@ export default function ScrollStage() {
       disposed = true;
       ctx.revert(); // kills the timeline, ScrollTrigger, pin spacer and SplitText
       stopLenis();
+      delete document.documentElement.dataset.nav;
     };
   }, []);
 

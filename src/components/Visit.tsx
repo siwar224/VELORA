@@ -4,6 +4,7 @@ export default function Visit() {
   return (
     <footer
       id="visit"
+      data-nav-theme="dark"
       aria-labelledby="visit-heading"
       className="bg-espresso px-5 pt-28 pb-10 text-cream md:px-10 md:pt-40 lg:px-20"
     >

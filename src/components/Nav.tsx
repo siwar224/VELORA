@@ -4,33 +4,59 @@ import { useEffect, useRef } from "react";
 import { brand, nav } from "@/content/site";
 import { ScrollTrigger } from "@/lib/gsap";
 
+/**
+ * Fixed nav with two looks (styles in globals.css, `.site-nav`):
+ * - Over the frame sequence: no bar at all, just a faint top scrim so the
+ *   links stay legible without hiding the animation.
+ * - From the cream wipe onward: frosted espresso glass. ScrollStage switches
+ *   this by setting <html data-nav="solid">, exactly when the wipe starts.
+ * In glass mode the bar slides away while you scroll down and comes back as
+ * soon as you scroll up (or tab into it).
+ */
 export default function Nav() {
   const headerRef = useRef<HTMLElement>(null);
 
-  // Transparent over the hero; a solid espresso bar once you scroll past
-  // ~60% of the first screen, so it stays readable over the cream sections.
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
-    const st = ScrollTrigger.create({
-      start: () => window.innerHeight * 0.6,
-      end: "max",
-      onToggle: (self) => (header.dataset.solid = String(self.isActive)),
-    });
-    return () => st.kill();
+    const triggers = [
+      ScrollTrigger.create({
+        start: 0,
+        end: "max",
+        onUpdate: (self) => {
+          const solid = document.documentElement.dataset.nav === "solid";
+          header.dataset.hidden = String(solid && self.direction === 1);
+        },
+      }),
+      // Glass tint follows the section under the bar: cream glass over light
+      // sections, espresso glass over dark ones (sections opt in with data-nav-theme).
+      ...Array.from(document.querySelectorAll<HTMLElement>("[data-nav-theme]")).map((el) =>
+        ScrollTrigger.create({
+          trigger: el,
+          start: "top 40px",
+          end: "bottom 40px",
+          refreshPriority: -1, // measure after the stage's pin spacer exists
+          onToggle: (self) => {
+            if (self.isActive) header.dataset.theme = el.dataset.navTheme;
+          },
+        }),
+      ),
+    ];
+    return () => triggers.forEach((t) => t.kill());
   }, []);
 
   return (
     <header
       ref={headerRef}
-      data-solid="false"
-      className="fixed inset-x-0 top-0 z-40 transition-[background-color,backdrop-filter] duration-500 data-[solid=true]:bg-espresso/85 data-[solid=true]:backdrop-blur-md"
+      data-hidden="false"
+      data-theme="dark"
+      className="site-nav fixed inset-x-0 top-0 z-40 text-(--nav-fg)"
     >
       <nav
         aria-label="Main"
-        className="mx-auto flex max-w-[90rem] items-center justify-between px-5 py-5 md:px-10 md:py-7"
+        className="relative mx-auto flex max-w-[90rem] items-center justify-between px-5 py-5 md:px-10 md:py-6"
       >
-        <a href="#top" className="font-serif text-2xl tracking-[0.3em] text-cream">
+        <a href="#top" className="font-serif text-2xl tracking-[0.3em]">
           {brand.name}
           <span className="sr-only"> — home</span>
         </a>
@@ -39,10 +65,7 @@ export default function Nav() {
           <ul className="hidden items-center gap-8 md:flex">
             {nav.links.map((link) => (
               <li key={link.href}>
-                <a
-                  href={link.href}
-                  className="eyebrow text-cream/80 transition-colors hover:text-cream"
-                >
+                <a href={link.href} className="eyebrow opacity-80 transition-opacity hover:opacity-100">
                   {link.label}
                 </a>
               </li>
@@ -50,7 +73,7 @@ export default function Nav() {
           </ul>
           <a
             href={nav.cta.href}
-            className="eyebrow border border-cream/40 px-4 py-2.5 text-cream transition-colors hover:border-caramel hover:bg-caramel/15"
+            className="eyebrow border border-current/40 px-4 py-2.5 transition-colors hover:border-caramel hover:bg-caramel/15"
           >
             {nav.cta.label}
           </a>
