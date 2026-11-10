@@ -42,7 +42,7 @@ export default function AdminSidebar({ collapsed, onToggle, onLogout, onNavigate
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className={cn("flex h-16 items-center border-b border-sidebar-border", collapsed ? "justify-center" : "px-5")}>
-        <Link href="/admin" onClick={onNavigate} className="font-serif text-2xl tracking-[0.3em]" aria-label={`${brand.name} admin home`}>
+        <Link href="/admin" onClick={onNavigate} className="flex min-h-11 items-center font-serif text-2xl tracking-[0.3em]" aria-label={`${brand.name} admin home`}>
           {collapsed ? "V" : brand.name}
           <span className="-ml-[0.2em] text-caramel">.</span>
         </Link>

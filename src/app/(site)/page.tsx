@@ -3,6 +3,7 @@ import HeadingReveals from "@/components/HeadingReveals";
 import Marquee from "@/components/Marquee";
 import Menu from "@/components/Menu";
 import Nav from "@/components/Nav";
+import OrderAhead from "@/components/OrderAhead";
 import Preloader from "@/components/Preloader";
 import Quote from "@/components/Quote";
 import ScrollStage from "@/components/ScrollStage";
@@ -24,6 +25,7 @@ export default function Home() {
       <Visit />
       <GrainOverlay />
       <HeadingReveals />
+      <OrderAhead />
     </>
   );
 }

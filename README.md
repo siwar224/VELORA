@@ -74,7 +74,35 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
   them up and phones in portrait use them automatically. Set the focal point in
   `src/lib/frames.ts` (assumed 1080×1920, glass centred).
 
+## Admin dashboard (`/admin`, frontend-only demo)
+
+- Sign in at `/admin/login` with the demo credentials shown on the page
+  (`demo@velor.example` / `velor-demo`). It's a localStorage flag checked on the
+  client: **not real authentication**, clearly labelled as a demo. `/admin` is
+  `noindex` and disallowed in robots.txt.
+- Route groups: `app/(site)` is the public page; `app/(admin)` has its own root layout
+  and stylesheet (`admin.css`, shadcn/ui theme on the brand palette) and never loads
+  GSAP, Lenis or the frames (verified in the built bundles).
+- Pages: Overview (KPIs vs previous period, revenue 7/30 days, orders by hour, best
+  sellers, low stock), Orders (dnd-kit kanban, keyboard moves, "Move to" menu, incoming
+  order simulator), Menu (TanStack Table + react-hook-form/zod sheet), Settings (hours,
+  "Closed today"). ⌘K / Ctrl+K opens the command palette. Copy: `src/content/admin.ts`.
+- Data: `src/lib/data`. Two persisted Zustand stores (catalog: menu + settings; orders),
+  read and written only through the async functions in `api.ts`, so a real backend can
+  replace that one file. 30 days of history come from a seeded generator (`seed.ts`).
+- Live link: `sync.ts` (BroadcastChannel + storage event). The public "Order ahead"
+  form creates orders that appear on the Orders board; menu edits, availability and
+  opening hours update the public Menu and the "Open now" badge in other tabs.
+- To reset the demo data, clear the site's localStorage (`velor:*` keys).
+
 ## Checked
+
+- Admin (Playwright, 1440×900 and 768×1024): guard redirect, wrong/correct demo login by
+  keyboard, all pages, ⌘K, kanban keyboard move with announcement, menu form errors + add,
+  availability toggle, settings; axe (WCAG 2.1 A/AA) found no violations on login,
+  overview, orders, menu and settings; no console errors; 44px touch targets (switches
+  have an invisible 44px hit area). Cross-tab: admin edits showed live on the public
+  menu and badge, and a public "Order ahead" order appeared live on the board.
 
 - Lighthouse desktop, production build (Phase 2): Performance 97–98, Accessibility 100,
   Best Practices 100, SEO 100 (LCP 0.7 s, CLS 0). Scores swing a lot if the machine is

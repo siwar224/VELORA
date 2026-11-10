@@ -1,14 +1,30 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { menu, type MenuItem } from "@/content/site";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { menu } from "@/content/site";
+import { useLiveCatalog } from "@/lib/data/live";
+import type { MenuItemRecord } from "@/lib/data/types";
+
+/** Menu items come from the live catalog (defaults = site.ts; the admin can edit them). */
+type MenuItem = MenuItemRecord;
 
 /** Devices that get the large side preview; everything else taps a row to expand it. */
 const HOVER_QUERY = "(hover: hover) and (pointer: fine) and (min-width: 768px)";
 
 /** Photo paths contain spaces ("Velvet Iced Latte.png"): encode them for the image optimiser. */
-const src = (item: MenuItem) => encodeURI(item.image);
+const src = (item: MenuItem) => encodeURI(item.image ?? "");
+/** €5.50, or €18 for whole euros (bean bags). */
+const price = (p: number) => (Number.isInteger(p) ? `€${p}` : `€${p.toFixed(2)}`);
+
+/** Items added in the admin may have no photo yet: a quiet branded placeholder. */
+function Placeholder({ small = false }: { small?: boolean }) {
+  return (
+    <span aria-hidden="true" className={`absolute inset-0 flex items-center justify-center bg-espresso font-serif text-caramel ${small ? "text-xl" : "text-6xl"}`}>
+      V
+    </span>
+  );
+}
 const focus = (item: MenuItem) => item.focus ?? "50% 45%";
 
 /**
@@ -21,7 +37,9 @@ const coverSizes = (item: MenuItem, boxAspect: number, ...px: [query: string, wi
   return px.map(([q, w]) => `${q ? q + " " : ""}${Math.ceil(w * k)}px`).join(", ");
 };
 
-function Tag({ tag }: { tag?: MenuItem["tag"] }) {
+function Tag({ tag, soldOut = false }: { tag?: MenuItem["tag"]; soldOut?: boolean }) {
+  if (soldOut)
+    return <span className="eyebrow shrink-0 rounded-full bg-espresso px-2 py-0.5 text-[0.58rem] text-cream">{menu.soldOut}</span>;
   if (!tag) return null;
   return (
     <span className="eyebrow shrink-0 rounded-full border border-caramel-deep/40 px-2 py-0.5 text-[0.58rem] text-caramel-deep">
@@ -60,6 +78,12 @@ export default function Menu() {
   const [open, setOpen] = useState<number | null>(null); // expanded row (touch mode)
   const [hoverMode, setHoverMode] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { menu: catalog } = useLiveCatalog();
+  // Tab labels from site.ts; items from the live catalog (admin edits, sold-out items).
+  const tabs = useMemo(
+    () => menu.tabs.map((t) => ({ id: t.id, label: t.label, items: catalog.filter((m) => m.category === t.id) })),
+    [catalog],
+  );
 
   useEffect(() => {
     const mq = window.matchMedia(HOVER_QUERY);
@@ -76,7 +100,7 @@ export default function Menu() {
   };
 
   const onTabKey = (e: KeyboardEvent) => {
-    const n = menu.tabs.length;
+    const n = tabs.length;
     const next = { ArrowRight: (tab + 1) % n, ArrowLeft: (tab - 1 + n) % n, Home: 0, End: n - 1 }[e.key];
     if (next === undefined) return;
     e.preventDefault();
@@ -84,8 +108,8 @@ export default function Menu() {
     tabRefs.current[next]?.focus();
   };
 
-  const items = menu.tabs[tab].items;
-  const current = items[active] ?? items[0];
+  const items = tabs[tab].items;
+  const current: MenuItem | undefined = items[active] ?? items[0];
   const previewId = `${uid}-preview`;
 
   return (
@@ -111,7 +135,7 @@ export default function Menu() {
 
         {/* Tabs */}
         <div role="tablist" aria-label="Menu sections" className="mt-12 flex justify-center gap-2 md:gap-6" onKeyDown={onTabKey}>
-          {menu.tabs.map((t, i) => (
+          {tabs.map((t, i) => (
             <button
               key={t.id}
               ref={(el) => {
@@ -133,14 +157,14 @@ export default function Menu() {
 
         <div className="mt-12 grid gap-12 md:grid-cols-[1fr_minmax(0,22rem)] md:gap-14 lg:grid-cols-[1fr_26rem]">
           {/* Rows */}
-          <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${menu.tabs[tab].id}`}>
+          <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${tabs[tab].id}`}>
             {!hoverMode && <p className="eyebrow mb-6 text-espresso/70 md:hidden">{menu.tapHint}</p>}
             <ul className="divide-y divide-espresso/10 border-y border-espresso/10">
               {items.map((item, i) => {
                 const isActive = hoverMode && active === i;
                 const isOpen = !hoverMode && open === i;
                 return (
-                  <li key={item.name}>
+                  <li key={item.id} className={item.available ? undefined : "opacity-60"}>
                     <button
                       type="button"
                       // Mouse devices: hover/focus/click previews the product. Touch: tap expands the row.
@@ -156,14 +180,18 @@ export default function Menu() {
                       <span
                         className={`relative size-14 shrink-0 overflow-hidden rounded-full bg-espresso ring-2 ring-offset-2 ring-offset-milk transition-[box-shadow] duration-300 md:size-16 ${isActive ? "ring-caramel-deep" : "ring-transparent"}`}
                       >
-                        <Image
-                          src={src(item)}
-                          alt=""
-                          fill
-                          sizes={coverSizes(item, 1, ["", 64])}
-                          className="object-cover transition-transform duration-500 ease-out group-hover:scale-110 motion-reduce:transition-none"
-                          style={{ objectPosition: focus(item) }}
-                        />
+                        {item.image ? (
+                          <Image
+                            src={src(item)}
+                            alt=""
+                            fill
+                            sizes={coverSizes(item, 1, ["", 64])}
+                            className="object-cover transition-transform duration-500 ease-out group-hover:scale-110 motion-reduce:transition-none"
+                            style={{ objectPosition: focus(item) }}
+                          />
+                        ) : (
+                          <Placeholder small />
+                        )}
                       </span>
 
                       <span className="min-w-0 flex-1">
@@ -172,23 +200,25 @@ export default function Menu() {
                             {item.name}
                           </span>
                           <span className="hidden md:contents">
-                            <Tag tag={item.tag} />
+                            <Tag tag={item.tag} soldOut={!item.available} />
                           </span>
                           {/* Dotted leader */}
                           <span aria-hidden="true" className="min-w-6 flex-1 -translate-y-1.5 border-b-2 border-dotted border-espresso/25" />
-                          <span className="font-sans text-base font-medium tabular-nums">{item.price}</span>
+                          <span className="font-sans text-base font-medium tabular-nums">{price(item.price)}</span>
                         </span>
                         {/* Phones: the tag sits under the name so long names keep one line. */}
-                        {item.tag && (
+                        {(item.tag || !item.available) && (
                           <span className="mt-1.5 block md:hidden">
-                            <Tag tag={item.tag} />
+                            <Tag tag={item.tag} soldOut={!item.available} />
                           </span>
                         )}
                         <span className="mt-1 block font-serif text-lg text-espresso/75 italic">{item.detail}</span>
-                        <span className="eyebrow mt-1.5 block text-[0.62rem] text-caramel-deep">
-                          <span className="sr-only">{menu.notesLabel}: </span>
-                          {item.notes.join(" · ")}
-                        </span>
+                        {item.notes.length > 0 && (
+                          <span className="eyebrow mt-1.5 block text-[0.62rem] text-caramel-deep">
+                            <span className="sr-only">{menu.notesLabel}: </span>
+                            {item.notes.join(" · ")}
+                          </span>
+                        )}
                       </span>
                     </button>
 
@@ -197,10 +227,11 @@ export default function Menu() {
                       <div className={`grid transition-[grid-template-rows] duration-500 ease-out motion-reduce:transition-none ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                         <div className="overflow-hidden">
                           <div className="relative mb-6 aspect-[4/3] overflow-hidden bg-espresso">
-                            {isOpen && (
+                            {isOpen && !item.image && <Placeholder />}
+                            {isOpen && item.image && (
                               <Image
                                 src={src(item)}
-                                alt={item.alt}
+                                alt={item.alt ?? item.name}
                                 fill
                                 sizes={coverSizes(item, 4 / 3, ["(min-width: 768px)", 700], ["", 480])}
                                 className="object-cover"
@@ -219,14 +250,16 @@ export default function Menu() {
           </div>
 
           {/* Mouse devices: large sticky product preview. */}
-          {hoverMode && (
+          {hoverMode && current && (
             <figure id={previewId} className="self-start md:sticky md:top-28">
               <div className="relative aspect-[4/5] overflow-hidden bg-espresso shadow-[0_30px_60px_-35px_rgb(30_18_11/0.6)]">
-                {items.map((item, i) => (
+                {!current.image && <Placeholder />}
+                {items.map((item, i) =>
+                  !item.image ? null : (
                   <Image
-                    key={item.name}
+                    key={item.id}
                     src={src(item)}
-                    alt={i === active ? item.alt : ""}
+                    alt={i === active ? (item.alt ?? item.name) : ""}
                     aria-hidden={i === active ? undefined : true}
                     fill
                     sizes={coverSizes(item, 4 / 5, ["(min-width: 1024px)", 416], ["", 352])}
@@ -234,15 +267,16 @@ export default function Menu() {
                     className={`object-cover transition-[opacity,transform] duration-[700ms,1400ms] ease-out motion-reduce:transition-none ${i === active ? "scale-100 opacity-100" : "scale-[1.06] opacity-0"}`}
                     style={{ objectPosition: focus(item) }}
                   />
-                ))}
+                  ),
+                )}
               </div>
               <figcaption aria-hidden="true" className="mt-5">
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="flex items-baseline gap-3">
                     <span className="font-serif text-3xl">{current.name}</span>
-                    <Tag tag={current.tag} />
+                    <Tag tag={current.tag} soldOut={!current.available} />
                   </span>
-                  <span className="font-sans text-base font-medium tabular-nums">{current.price}</span>
+                  <span className="font-sans text-base font-medium tabular-nums">{price(current.price)}</span>
                 </div>
                 <p className="mt-1 font-serif text-lg text-espresso/75 italic">{current.detail}</p>
                 <Notes item={current} className="mt-4" />

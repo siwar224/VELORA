@@ -1,29 +1,57 @@
 "use client";
 
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { brand, visit } from "@/content/site";
+import { effectiveSchedule, shopToday } from "@/lib/data/api";
+import { openOrderForm, useLiveCatalog } from "@/lib/data/live";
+import type { Settings } from "@/lib/data/types";
 import { openStatus, type OpenStatus } from "@/lib/hours";
+
+/**
+ * Hours as display rows, grouping consecutive weekdays with identical hours
+ * (Mon – Fri 07:30 – 18:30, Saturday 09:00 – 19:00, …). Monday first.
+ */
+function hourRows(settings: Settings) {
+  const s = visit.status;
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const key = (d: number) => (settings.schedule[d].open ? `${settings.schedule[d].from} – ${settings.schedule[d].to}` : s.closedDay);
+  const rows: { days: string; time: string }[] = [];
+  for (let i = 0; i < order.length; ) {
+    let j = i;
+    while (j + 1 < order.length && key(order[j + 1]) === key(order[i])) j++;
+    const days = i === j ? s.daysLong[order[i]] : `${s.days[order[i]]} – ${s.days[order[j]]}`;
+    rows.push({ days, time: key(order[i]) });
+    i = j + 1;
+  }
+  return rows;
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** "Open now · until 18:30" / "Closed · opens Mon 07:30", from the hours in site.ts (Paris time). */
-function StatusBadge() {
+/**
+ * "Open now · until 18:30" / "Closed · opens Mon 07:30", from the live opening
+ * hours (admin Settings; defaults from site.ts), in Paris time. "Closed today"
+ * from the admin is applied, with its note.
+ */
+function StatusBadge({ settings }: { settings: Settings }) {
   // Computed in the browser only: the server's clock and time zone would be wrong
-  // (and cause a hydration mismatch). Refreshed every minute.
+  // (and cause a hydration mismatch). Refreshed every minute and on settings changes.
   const [status, setStatus] = useState<OpenStatus | null>(null);
   useEffect(() => {
-    const tick = () => setStatus(openStatus(visit.schedule, visit.timeZone));
+    const tick = () => setStatus(openStatus(effectiveSchedule(settings), visit.timeZone));
     tick();
     const id = window.setInterval(tick, 60_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [settings]);
+  const closedToday = settings.closedToday.on && settings.closedToday.date === shopToday();
+  const note = closedToday ? settings.closedToday.note.trim() || visit.closedTodayFallback : "";
 
   const s = visit.status;
   const text = !status
     ? " "
     : status.open
       ? `${s.open} · ${s.until} ${status.closes}`
-      : `${s.closed} · ${s.opens} ${status.opensDay === null ? "" : `${s.days[status.opensDay]} `}${status.opensAt}`;
+      : `${s.closed}${note ? ` (${note})` : ""} · ${s.opens} ${status.opensDay === null ? "" : `${s.days[status.opensDay]} `}${status.opensAt}`;
 
   return (
     <p
@@ -86,6 +114,9 @@ function Newsletter() {
 }
 
 export default function Visit() {
+  const { settings, hydrated } = useLiveCatalog();
+  // Server / first paint: the site.ts listing; after hydration: the live hours.
+  const hours = useMemo(() => (hydrated ? hourRows(settings) : visit.hours), [hydrated, settings]);
   return (
     <footer
       id="visit"
@@ -105,10 +136,15 @@ export default function Visit() {
               {visit.heading}
             </h2>
             <div className="mt-8">
-              <StatusBadge />
+              <StatusBadge settings={settings} />
             </div>
             <a
               href={visit.order.href}
+              // Opens the order form; the mailto link is the no-JavaScript fallback.
+              onClick={(e) => {
+                e.preventDefault();
+                openOrderForm();
+              }}
               className="eyebrow mt-10 inline-flex items-center gap-3 bg-caramel px-7 py-4 text-espresso transition-colors hover:bg-cream"
             >
               {visit.order.label} <span aria-hidden="true">→</span>
@@ -125,7 +161,7 @@ export default function Visit() {
             <div>
               <p className="eyebrow mb-4 text-cream/60">Hours</p>
               <dl className="space-y-1 text-cream/85">
-                {visit.hours.map((h) => (
+                {hours.map((h) => (
                   <div key={h.days} className="flex justify-between gap-6 md:max-w-72">
                     <dt>{h.days}</dt>
                     <dd className="tabular-nums">{h.time}</dd>

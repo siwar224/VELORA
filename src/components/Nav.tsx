@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { brand, nav } from "@/content/site";
 import { ScrollTrigger } from "@/lib/gsap";
 import { idleEffect } from "@/lib/idle";
+import { openOrderForm } from "@/lib/data/live";
 
 /**
  * Fixed nav with two looks (styles in globals.css, `.site-nav`):
@@ -94,6 +95,11 @@ export default function Nav() {
           </ul>
           <a
             href={nav.cta.href}
+            // Opens the "Order ahead" form (falls back to #visit without JavaScript).
+            onClick={(e) => {
+              e.preventDefault();
+              openOrderForm();
+            }}
             className="eyebrow border border-current/40 px-4 py-2.5 transition-colors hover:border-caramel hover:bg-caramel/15"
           >
             {nav.cta.label}

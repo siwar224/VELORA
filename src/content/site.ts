@@ -238,6 +238,34 @@ export const menu = {
   footnote: "Whole, oat or almond milk at no extra cost. Decaf on request.",
   tapHint: "Tap a drink to see it",
   notesLabel: "Tasting notes",
+  soldOut: "Sold out today",
+} as const;
+
+/** "Order ahead" form (demo: orders go to the admin dashboard, no payment). */
+export const orderAhead = {
+  title: "Order ahead",
+  intro: "Pick a drink and a time. We'll have it waiting at the bar.",
+  drink: "Drink",
+  quantity: "Quantity",
+  decrease: "One less",
+  increase: "One more",
+  name: "Name for the order",
+  namePlaceholder: "e.g. Camille",
+  pickup: "Pickup time",
+  submit: "Place order",
+  close: "Close",
+  demoNote: "Demo order: no payment is taken. It appears live in the admin dashboard.",
+  successTitle: "Order confirmed",
+  success: (n: number, time: string) => `Order #${n} is in. Collect it at the bar from ${time}.`,
+  another: "Order something else",
+  closedNow: (when: string) => `We're closed right now. Ordering reopens ${when}.`,
+  today: (time: string) => `today at ${time}`,
+  onDay: (day: string, time: string) => `on ${day} at ${time}`,
+  closedAllWeek: "We're closed for now. Please check back soon.",
+  errors: {
+    name: "Please add a name (up to 30 characters).",
+    drink: "Please choose a drink.",
+  },
 } as const;
 
 export const quote = {
@@ -274,8 +302,13 @@ export const visit = {
     until: "until",
     opens: "opens",
     days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    daysLong: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    closedDay: "Closed",
   },
+  // Without JavaScript the button falls back to this link; with it, it opens the order form.
   order: { label: "Order ahead", href: "mailto:orders@velor.example?subject=Order%20ahead" },
+  /** Shown next to the badge when the shop is marked "Closed today" in the admin. */
+  closedTodayFallback: "Closed today",
   contact: { label: "hello@velor.example", href: "mailto:hello@velor.example" },
   newsletter: {
     title: "The Cold Letter",
