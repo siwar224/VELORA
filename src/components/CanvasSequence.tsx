@@ -1,36 +1,34 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
-import { FRAME_COUNT, frameSrc } from "@/lib/frames";
-
-/** Where the subject sits in the source frames (fraction of width / height). */
-const FOCAL_X = 0.74;
-const FOCAL_Y = 0.5;
-/**
- * Cover fit with a focal point, for a viewport of cw × ch and a source of iw × ih.
- * Scale to fill, then shift so the glass (FOCAL_X) sits at the viewport centre,
- * but never so far that we reveal past the image edge. On landscape screens the
- * clamp wins and we just crop the empty left side; on portrait the glass is centred.
- */
-export function coverRect(cw: number, ch: number, iw = 1920, ih = 1080) {
-  const scale = Math.max(cw / iw, ch / ih);
-  const dw = iw * scale;
-  const dh = ih * scale;
-  const dx = Math.min(0, Math.max(cw - dw, cw / 2 - FOCAL_X * dw));
-  const dy = Math.min(0, Math.max(ch - dh, ch / 2 - FOCAL_Y * dh));
-  return { dx, dy, dw, dh };
-}
-
-/** Where the glass centre lands on screen, as a fraction of viewport width. */
-export function glassScreenX(cw: number, ch: number) {
-  const { dx, dw } = coverRect(cw, ch);
-  return (dx + FOCAL_X * dw) / cw;
-}
+import { activeFrameSet, frameSrc, type FrameSet } from "@/lib/frames";
 
 /** Frames loaded straight away; the rest stream in when the browser is idle. */
 const EAGER = 30;
 /** Parallel requests while streaming the rest. */
 const CONCURRENCY = 6;
+
+/**
+ * Cover fit with a focal point, for a viewport of cw × ch.
+ * Scale to fill, then shift so the glass (set.focalX/Y) sits at the viewport
+ * centre, but never so far that we reveal past the image edge. On landscape
+ * screens the clamp wins and we just crop the empty left side; on portrait the
+ * glass is centred.
+ */
+export function coverRect(cw: number, ch: number, set: FrameSet) {
+  const scale = Math.max(cw / set.width, ch / set.height);
+  const dw = set.width * scale;
+  const dh = set.height * scale;
+  const dx = Math.min(0, Math.max(cw - dw, cw / 2 - set.focalX * dw));
+  const dy = Math.min(0, Math.max(ch - dh, ch / 2 - set.focalY * dh));
+  return { dx, dy, dw, dh };
+}
+
+/** Where the glass centre lands on screen, as a fraction of viewport width. */
+export function glassScreenX(cw: number, ch: number, set: FrameSet) {
+  const { dx, dw } = coverRect(cw, ch, set);
+  return (dx + set.focalX * dw) / cw;
+}
 
 export type CanvasSequenceHandle = {
   /** Show a 0-based frame index. Cheap to call every tick: only redraws on change. */
@@ -40,6 +38,8 @@ export type CanvasSequenceHandle = {
 type Props = {
   ref?: Ref<CanvasSequenceHandle>;
   className?: string;
+  /** Called each time a frame finishes loading (or fails). */
+  onProgress?: (loaded: number, total: number) => void;
 };
 
 /**
@@ -66,12 +66,12 @@ const idle = (cb: () => void) => {
   else setTimeout(cb, 16);
 };
 
-export default function CanvasSequence({ ref, className }: Props) {
+export default function CanvasSequence({ ref, className, onProgress }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const images = useRef<(HTMLImageElement | null)[]>([]);
   const wanted = useRef(0); // frame the timeline asked for
-  const drawn = useRef(-1); // frame currently on the canvas
-  const drawRef = useRef<(force?: boolean) => void>(() => {});
+  const drawRef = useRef<() => void>(() => {});
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
 
   useImperativeHandle(ref, () => ({
     setFrame(index) {
@@ -84,32 +84,35 @@ export default function CanvasSequence({ ref, className }: Props) {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d", { alpha: false });
     if (!canvas || !ctx) return;
+    // Reduced motion: static poster only, don't download the sequence at all.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    const set = activeFrameSet();
+    const images: (HTMLImageElement | null)[] = new Array(set.count).fill(null);
+    let drawn = -1; // frame currently on the canvas
+    let loaded = 0;
     let alive = true;
-    images.current = new Array(FRAME_COUNT).fill(null);
 
     /** Closest frame to `i` that has finished loading (search outward). */
     const nearestLoaded = (i: number) => {
-      for (let d = 0; d < FRAME_COUNT; d++) {
-        if (images.current[i - d]) return i - d;
-        if (images.current[i + d]) return i + d;
+      for (let d = 0; d < set.count; d++) {
+        if (images[i - d]) return i - d;
+        if (images[i + d]) return i + d;
       }
       return -1;
     };
 
     const draw = (force = false) => {
       const index = nearestLoaded(wanted.current);
-      if (index < 0 || (index === drawn.current && !force)) return;
-      const img = images.current[index]!;
-
-      const { dx, dy, dw, dh } = coverRect(canvas.width, canvas.height, img.naturalWidth, img.naturalHeight);
-      ctx.drawImage(img, dx, dy, dw, dh);
-      // The canvas is opaque black until its first draw; the poster <Image>
+      if (index < 0 || (index === drawn && !force)) return;
+      const { dx, dy, dw, dh } = coverRect(canvas.width, canvas.height, set);
+      ctx.drawImage(images[index]!, dx, dy, dw, dh);
+      // The canvas is opaque black until its first draw; the poster image
       // underneath stays visible until then.
-      if (drawn.current < 0) canvas.style.opacity = "1";
-      drawn.current = index;
+      if (drawn < 0) canvas.style.opacity = "1";
+      drawn = index;
     };
-    drawRef.current = draw;
+    drawRef.current = () => draw();
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -123,21 +126,22 @@ export default function CanvasSequence({ ref, className }: Props) {
 
     const load = async (i: number) => {
       const img = new Image();
-      img.src = frameSrc(i + 1);
+      img.src = frameSrc(i + 1, set);
       try {
         await img.decode(); // decode off the main thread before first draw
+        if (!alive) return;
+        images[i] = img;
+        // Redraw if this frame is closer to the wanted one than what's showing.
+        if (drawn < 0 || Math.abs(i - wanted.current) < Math.abs(drawn - wanted.current)) draw();
       } catch {
-        return; // a missing frame just falls back to its neighbours
+        // A missing frame just falls back to its neighbours.
       }
-      if (!alive) return;
-      images.current[i] = img;
-      // Redraw if this frame is closer to the wanted one than what's showing.
-      if (Math.abs(i - wanted.current) < Math.abs(drawn.current - wanted.current) || drawn.current < 0) draw();
+      if (alive) onProgressRef.current?.(++loaded, set.count);
     };
 
     // 1) Eager frames in parallel.  2) The rest, a few at a time, when idle.
-    const eager = Array.from({ length: Math.min(EAGER, FRAME_COUNT) }, (_, i) => load(i));
-    const queue = loadOrder(FRAME_COUNT);
+    const eager = Array.from({ length: Math.min(EAGER, set.count) }, (_, i) => load(i));
+    const queue = loadOrder(set.count);
     const pump = () => {
       if (!alive) return;
       const next = queue.shift();

@@ -11,8 +11,17 @@
 //   pour 40–130, finish.in 232.
 
 export const timeline = {
-  /** Total pinned scroll length, in viewport heights. */
-  scrollVh: { desktop: 650, mobile: 450 },
+  /**
+   * The sequence plays frames 1…lastFrame; later frames are never downloaded.
+   * 267: condensation is already there, the rest adds nothing. The files stay
+   * in public/frames so this is a one-number change.
+   */
+  lastFrame: 267,
+  /**
+   * Total pinned scroll length, in viewport heights. Scaled down with lastFrame
+   * (was 650 / 450 for all 326 frames) so each frame keeps the same scroll speed.
+   */
+  scrollVh: { desktop: 550, mobile: 380 },
   /** Seconds the visuals take to catch up with the scrollbar (ScrollTrigger scrub). */
   scrub: 0.5,
   /** How many frames a text fade in/out lasts. */

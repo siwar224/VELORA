@@ -87,7 +87,7 @@ export const menu = {
       name: "Espresso Tonic",
       notes: "Washed Ethiopia over tonic and orange peel.",
       price: "€5.80",
-      frame: 326,
+      frame: 267,
     },
   ],
 } as const;

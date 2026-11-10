@@ -53,6 +53,13 @@ body {
   }
 }
 
+/* Only applied when a portrait frame set exists: its poster is centred on phones. */
+@utility poster-mobile-set {
+  @media (max-width: 768px) and (orientation: portrait) {
+    object-position: 50% 50%;
+  }
+}
+
 /* ---- Nav (see Nav.tsx) ---- */
 .site-nav {
   --nav-fg: var(--cream);
