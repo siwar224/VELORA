@@ -1,41 +1,39 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
+import { useEffect, useRef } from "react";
 import { brand } from "@/content/site";
+import { onFrameProgress } from "@/lib/preload";
 
 /** Reveal once this share of frames is decoded… */
 const THRESHOLD = 0.3;
 /** …or after this long at most, so a slow connection is never stuck behind it. */
 const MAX_WAIT_MS = 4000;
 
-export type PreloaderHandle = {
-  progress: (loaded: number, total: number) => void;
-};
-
 /**
  * Minimal preloader: wordmark + a thin caramel progress line. Purely visual
  * (aria-hidden); the page underneath is already rendered and accessible.
+ * Rendered at page level (not inside the pinned stage) so it always sits above
+ * the nav. Progress arrives from CanvasSequence via lib/preload.ts.
  * Hidden without JS (noscript style) and for reduced motion (no frames load).
  */
-export default function Preloader({ ref }: { ref?: Ref<PreloaderHandle> }) {
+export default function Preloader() {
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
-  const finish = () => {
-    if (rootRef.current) rootRef.current.dataset.done = "true";
-  };
-
-  useImperativeHandle(ref, () => ({
-    progress(loaded, total) {
+  useEffect(() => {
+    const finish = () => {
+      if (rootRef.current) rootRef.current.dataset.done = "true";
+    };
+    const unsubscribe = onFrameProgress((loaded, total) => {
       const p = Math.min(1, loaded / (total * THRESHOLD));
       if (barRef.current) barRef.current.style.transform = `scaleX(${p})`;
       if (p >= 1) finish();
-    },
-  }));
-
-  useEffect(() => {
+    });
     const id = window.setTimeout(finish, MAX_WAIT_MS);
-    return () => window.clearTimeout(id);
+    return () => {
+      unsubscribe();
+      window.clearTimeout(id);
+    };
   }, []);
 
   return (
@@ -48,7 +46,10 @@ export default function Preloader({ ref }: { ref?: Ref<PreloaderHandle> }) {
       <noscript>
         <style>{".preloader{display:none}"}</style>
       </noscript>
-      <p className="font-serif text-3xl tracking-[0.4em] text-cream">{brand.name}</p>
+      <p className="font-serif text-3xl tracking-[0.4em] text-cream">
+        {brand.name}
+        <span className="-ml-[0.3em] text-caramel">.</span>
+      </p>
       <div className="h-px w-40 overflow-hidden bg-cream/15">
         <div
           ref={barRef}

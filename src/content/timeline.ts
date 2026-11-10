@@ -38,6 +38,9 @@ export const timeline = {
 
   /** After the last frame: slow push-in on the glass. Length in frame units of scroll. */
   pushIn: { frames: 40, scale: 1.15 },
-  /** Then the cream panel wipes up over the stage before it unpins into the Story section. */
-  wipe: { frames: 30 },
+  /**
+   * Optional colour wipe over the stage before it unpins. 0 = off: the push-in
+   * flows straight into the caramel marquee band (no blank full-screen panel).
+   */
+  wipe: { frames: 0 },
 } as const;

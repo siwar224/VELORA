@@ -15,6 +15,7 @@ import { ScrollTrigger } from "@/lib/gsap";
  */
 export default function Nav() {
   const headerRef = useRef<HTMLElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -26,6 +27,8 @@ export default function Nav() {
         onUpdate: (self) => {
           const solid = document.documentElement.dataset.nav === "solid";
           header.dataset.hidden = String(solid && self.direction === 1);
+          // Whole-page reading progress, drawn as a caramel hairline under the nav.
+          if (progressRef.current) progressRef.current.style.transform = `scaleX(${self.progress})`;
         },
       }),
       // Glass tint follows the section under the bar: cream glass over light
@@ -52,12 +55,22 @@ export default function Nav() {
       data-theme="dark"
       className="site-nav fixed inset-x-0 top-0 z-40 text-(--nav-fg)"
     >
+      <div
+        ref={progressRef}
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-px origin-left bg-caramel"
+        style={{ transform: "scaleX(0)" }}
+      />
       <nav
         aria-label="Main"
         className="relative mx-auto flex max-w-[90rem] items-center justify-between px-5 py-5 md:px-10 md:py-6"
       >
         <a href="#top" className="font-serif text-2xl tracking-[0.3em]">
           {brand.name}
+          {/* Signature caramel dot after the wordmark. */}
+          <span aria-hidden="true" className="-ml-[0.2em] text-caramel">
+            .
+          </span>
           <span className="sr-only"> — home</span>
         </a>
 

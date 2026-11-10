@@ -1,4 +1,4 @@
-# EMBER — cinematic scroll site
+# VELOR — cinematic scroll site
 
 Single-page scrollytelling site for a fictional specialty coffee brand. A pinned canvas
 scrubs a WebP frame sequence on scroll (an iced latte: ice drops, splash, condensation),
@@ -22,7 +22,9 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
 
 | What | Where |
 |---|---|
-| All copy, brand name, menu items | `src/content/site.ts` |
+| All copy: brand, marquee words, story steps and counters, menu tabs/items/prices, pull quote, newsletter | `src/content/site.ts` |
+| Opening hours (drive the "Open now / Closed" badge, Paris time) | `visit.schedule` in `src/content/site.ts` (keep `visit.hours` in sync) |
+| Before launch: real contact and order addresses | `visit.contact`, `visit.order` (currently `.example` placeholders) |
 | Scroll choreography (which frame each text beat enters/leaves, last frame, scroll length, push-in, wipe) | `src/content/timeline.ts` — positions are frame numbers |
 | Colours, fonts, nav glass, poster crop | `src/app/globals.css` |
 | Crop focal point of a frame set | `src/lib/frames.ts` |
@@ -36,7 +38,19 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
   browser is idle (every 8th frame first, then filling in), and always draws the nearest
   loaded frame. Cover-fit with a focal point keeps the glass in view on any aspect ratio.
 - `ScrollStage` builds one scrubbed, pinned timeline where 1 unit of time = 1 frame:
-  frame index, text beats, push-in on the glass, then a cream wipe into the Story section.
+  frame index, text beats, then a push-in on the glass that flows straight into the
+  caramel marquee (the optional colour wipe is off: `timeline.wipe.frames = 0`).
+- Page order: stage → marquee → Our Story (dark, sticky column, counters, steps that light
+  up at screen centre, parallax crop) → Menu (cream "paper" card, Cold / Espresso / Beans
+  tabs, hover preview on mouse, tap to expand on touch) → pull quote (parallax) → Visit.
+- The nav has no bar over the frames, becomes frosted glass tinted to the section under it
+  (`data-nav-theme`), hides on scroll down, and shows reading progress as a caramel hairline.
+- The vignette shows on the stage only; film grain is everywhere.
+- Section headings reveal line by line (`data-reveal-heading`, `HeadingReveals.tsx`), set up
+  in an idle moment after load so they never block the first paint.
+- The preloader is rendered at page level and gets frame progress from `lib/preload.ts`
+  (a pinned element would otherwise trap it under the nav).
+- The newsletter form is frontend-only: it validates and confirms, sends nothing.
 - The LCP element is a real `<picture>` poster (frame 1), not the canvas.
 - **Reduced motion:** no pin, no scrub, no smooth scroll and no frame downloads. The
   finished drink is a static backdrop and the beats stack as normal sections.
@@ -46,10 +60,13 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
 
 ## Checked
 
-- Lighthouse desktop, production build: Performance 94, Accessibility 100,
-  Best Practices 100, SEO 100 (LCP 0.7 s, CLS 0).
-- Playwright at 1440×900 and 390×844, scroll 0/25/50/75/100 %: correct frame at each
-  point, no console errors, no horizontal scroll, one `<h1>`, skip link is the first tab stop.
+- Lighthouse desktop, production build (Phase 2): Performance 97–98, Accessibility 100,
+  Best Practices 100, SEO 100 (LCP 0.7 s, CLS 0). Scores swing a lot if the machine is
+  busy; compare builds back to back under the same load.
+- Playwright at 1440×900 and 390×844: every section, menu hover/tabs and tap-to-expand,
+  counters reach 4 / 48 / 10, one story step active at a time, badge open/closed at fixed
+  Paris times, newsletter error and success, no horizontal scroll, one `<h1>`; hero text
+  clear of the glass at 1024, 1100 and 1280 px; reduced motion: static marquee, no pin.
 
 ## Deploy (Vercel)
 
@@ -59,5 +76,6 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
    (`VERCEL_PROJECT_PRODUCTION_URL`). For a custom domain, set `NEXT_PUBLIC_SITE_URL`.
 4. `/frames/*` is served with `Cache-Control: public, max-age=31536000, immutable`
    (`next.config.ts`). If you ever replace frames, rename them (or the folder) to bust caches.
-5. Frames are about 22 MB in the repo; Vercel serves them from its CDN. The menu cards use
-   `next/image`, which counts toward Vercel's image-optimization quota (4 source images).
+5. Frames are about 22 MB in the repo; Vercel serves them from its CDN. Menu previews, the
+   story crop and the quote background use `next/image`, which counts toward Vercel's
+   image-optimization quota (4 source frames).

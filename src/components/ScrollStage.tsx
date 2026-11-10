@@ -3,7 +3,7 @@
 import { getImageProps } from "next/image";
 import { useEffect, useRef, type RefObject } from "react";
 import CanvasSequence, { glassScreenX, type CanvasSequenceHandle } from "@/components/CanvasSequence";
-import Preloader, { type PreloaderHandle } from "@/components/Preloader";
+import { reportFrameProgress } from "@/lib/preload";
 import { stage } from "@/content/site";
 import { timeline as T } from "@/content/timeline";
 import { activeFrameSet, desktopFrames, frameSrc, MOBILE_QUERY, mobileFrames } from "@/lib/frames";
@@ -36,12 +36,11 @@ export default function ScrollStage() {
   const rootRef = useRef<HTMLElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<CanvasSequenceHandle>(null);
-  const preloaderRef = useRef<PreloaderHandle>(null);
   const debugRef = useRef<HTMLOutputElement>(null);
   const refreshedAfterEager = useRef(false);
 
   const onFrameProgress = (loaded: number, total: number) => {
-    preloaderRef.current?.progress(loaded, total);
+    reportFrameProgress(loaded, total); // -> Preloader (page level)
     // First frames are in: re-measure once (cheap; guards against late layout shifts).
     if (!refreshedAfterEager.current && loaded >= Math.min(30, total)) {
       refreshedAfterEager.current = true;
@@ -102,7 +101,6 @@ export default function ScrollStage() {
       aria-labelledby="beat-arrival"
       className="relative h-svh overflow-hidden motion-reduce:h-auto motion-reduce:overflow-visible"
     >
-      <Preloader ref={preloaderRef} />
 
       {/* Media layer: scaled as one piece for the push-in. Sticky backdrop for reduced motion. */}
       <div
@@ -117,8 +115,8 @@ export default function ScrollStage() {
         </picture>
         <CanvasSequence ref={canvasRef} onProgress={onFrameProgress} className="absolute inset-0 h-full w-full motion-reduce:hidden" />
 
-        {/* Legibility: espresso fade from the left on desktop, stronger from the bottom on mobile. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-espresso/95 via-espresso/55 via-45% to-espresso/0 md:bg-gradient-to-r md:from-espresso/90 md:via-espresso/55 md:via-35% md:to-espresso/0 md:to-60%" />
+        {/* Legibility: espresso fade from the left on wide screens, stronger from the bottom below 1100px. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-espresso/95 via-espresso/55 via-45% to-espresso/0 wide:bg-gradient-to-r wide:from-espresso/90 wide:via-espresso/55 wide:via-35% wide:to-espresso/0 wide:to-60%" />
       </div>
 
       <p className="sr-only">{stage.canvasDescription}</p>
@@ -131,16 +129,18 @@ export default function ScrollStage() {
             data-beat={beat.id}
             // Beats after the first start hidden; the timeline reveals them.
             // Reduced motion: each beat is a normal full-screen block over the sticky backdrop.
-            className={`absolute inset-0 flex items-end px-5 pb-[12svh] md:items-center md:px-10 md:pb-0 lg:px-20 motion-reduce:relative motion-reduce:visible motion-reduce:h-svh motion-reduce:opacity-100 ${i === 0 ? "motion-reduce:-mt-[100svh]" : "invisible opacity-0"}`}
+            // Below 1100px ("wide"): text in the bottom third; above: vertically centred left column.
+            className={`absolute inset-0 flex items-end px-5 pb-[12svh] md:px-10 wide:items-center wide:px-20 wide:pb-0 motion-reduce:relative motion-reduce:visible motion-reduce:h-svh motion-reduce:opacity-100 ${i === 0 ? "motion-reduce:-mt-[100svh]" : "invisible opacity-0"}`}
           >
-            <div className="max-w-xl md:max-w-[min(36rem,45vw)]">
+            {/* Wide: capped at 40vw so the column ends before the glass (which starts ~55-60% across). */}
+            <div className="max-w-xl md:max-w-[42vw] wide:max-w-[min(36rem,40vw)]">
               <p data-reveal className="eyebrow flex items-center gap-4 text-caramel">
                 <span aria-hidden="true" className="h-px w-10 bg-caramel" />
                 {beat.label}
               </p>
               <Heading
                 id={`beat-${beat.id}`}
-                className="mt-6 font-serif text-5xl leading-[0.95] font-light text-cream md:text-7xl lg:text-8xl"
+                className="mt-6 font-serif text-5xl leading-[0.95] font-light text-cream md:text-[clamp(3rem,5.4vw,3.75rem)] wide:text-[clamp(4.5rem,6.2vw,6rem)]"
               >
                 {beat.heading}
               </Heading>
@@ -162,7 +162,7 @@ export default function ScrollStage() {
         );
       })}
 
-      {/* Colour wipe into the cream Story section. */}
+      {/* Optional colour wipe (timeline.wipe.frames; currently off). */}
       <div data-wipe aria-hidden="true" className="absolute inset-0 bg-cream [clip-path:inset(100%_0_0_0)] motion-reduce:hidden" />
 
       {/* Dev aid: add ?debug to the URL to see the live frame number. */}
@@ -236,11 +236,14 @@ function buildTimeline(
     ease: "power1.inOut",
   }, last);
 
-  // 4) Cream panel wipes up; the stage then unpins straight into Story (also cream).
-  tl.fromTo(q("[data-wipe]"),
-    { clipPath: "inset(100% 0% 0% 0%)" },
-    { clipPath: "inset(0% 0% 0% 0%)", duration: wipe, ease: "power2.inOut" },
-    wipeStart);
+  // 4) Optional cream panel wipe before unpinning (timeline.wipe.frames; 0 = off).
+  //    Skipped entirely at 0, otherwise a zero-length tween would snap it shut at the end.
+  if (wipe > 0) {
+    tl.fromTo(q("[data-wipe]"),
+      { clipPath: "inset(100% 0% 0% 0%)" },
+      { clipPath: "inset(0% 0% 0% 0%)", duration: wipe, ease: "power2.inOut" },
+      wipeStart);
+  }
 
   // Pad to the exact total so scroll length maps 1:1 onto the config.
   tl.set({}, {}, wipeStart + wipe);
@@ -251,7 +254,9 @@ function buildTimeline(
     // Nav: no bar over the frames; glass from the moment the cream wipe starts,
     // tinted for cream once the wipe has covered the top half of the screen.
     setNav(t >= wipeStart ? "solid" : "clear");
-    if (header) header.dataset.theme = t >= wipeStart + wipe / 2 ? "light" : "dark";
+    // With a wipe, tint for cream once it covers the top half; without one the
+    // sections below set the tint themselves (data-nav-theme).
+    if (header && wipe > 0) header.dataset.theme = t >= wipeStart + wipe / 2 ? "light" : "dark";
     if (debug) {
       const phase = t <= last ? "" : t < wipeStart ? " · push-in" : " · wipe";
       debug.textContent = `frame ${Math.round(seq.frame) + 1}/${set.count}${phase}`;

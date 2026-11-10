@@ -20,6 +20,36 @@
 
   --font-serif: var(--font-cormorant), "Times New Roman", serif;
   --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  /* Stage text switches from "bottom of screen" to "left column" layout here:
+     below ~1100px the left column would run onto the glass. */
+  --breakpoint-wide: 68.75rem;
+}
+
+/* ---- Vignette: stage only (GrainOverlay). Hidden once the stage hands over. ---- */
+.vignette {
+  transition: opacity 0.6s ease;
+}
+html[data-nav="solid"] .vignette {
+  opacity: 0;
+}
+
+/* ---- Marquee band (Marquee.tsx): two identical halves, slide by half. ---- */
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  animation: marquee 40s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
 }
 
 html {
