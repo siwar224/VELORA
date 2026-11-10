@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { story } from "@/content/site";
 import { desktopFrames, frameSrc } from "@/lib/frames";
 import { gsap, MOTION_OK, ScrollTrigger } from "@/lib/gsap";
+import { idleEffect } from "@/lib/idle";
 
 /**
  * Our Story (dark). Left: sticky heading, intro and counters. Right: a macro
@@ -17,7 +18,8 @@ import { gsap, MOTION_OK, ScrollTrigger } from "@/lib/gsap";
 export default function Story() {
   const rootRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
+  // Set up in its own idle task, not inside React's hydration task (keeps TBT low).
+  useEffect(() => idleEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const mm = gsap.matchMedia(root);
@@ -54,16 +56,16 @@ export default function Story() {
         });
       });
 
-      // Light parallax on the macro crop.
-      gsap.fromTo("[data-parallax]", { yPercent: -7 }, {
-        yPercent: 7,
+      // Light parallax on the drink (±4% stays inside the 5% overscan).
+      gsap.fromTo("[data-parallax]", { yPercent: -4 }, {
+        yPercent: 4,
         ease: "none",
         scrollTrigger: { ...after, trigger: "[data-parallax-frame]", start: "top bottom", end: "bottom top", scrub: true },
       });
     });
 
     return () => mm.revert();
-  }, []);
+  }), []);
 
   return (
     <section
@@ -105,21 +107,23 @@ export default function Story() {
           </dl>
         </div>
 
-        {/* Right: macro crop + steps. */}
+        {/* Right: the finished drink + steps. */}
         <div>
-          <div data-parallax-frame className="relative aspect-[4/5] overflow-hidden bg-black/30 md:aspect-[5/4]">
-            <div data-parallax className="absolute -inset-y-[10%] inset-x-0">
+          <div data-parallax-frame className="relative aspect-[4/5] overflow-hidden bg-black/30 md:aspect-square">
+            {/* 5% taller than the box on each side: just enough room for the parallax. */}
+            <div data-parallax className="absolute -inset-y-[5%] inset-x-0">
               <Image
                 src={frameSrc(desktopFrames.count)}
                 alt={story.imageAlt}
                 fill
-                sizes="(min-width: 768px) 120vw, 260vw"
-                // Zoomed onto the condensation: the image is right-aligned, then scaled
-                // around where the glass lands in the box (42% across on 4:5, 63% on 5:4).
-                className="origin-[42%_62%] scale-[2.2] object-cover object-[100%_50%] md:origin-[63%_62%]"
+                // Cover-fit of a 16:9 frame into a ~square box needs ~2× the box width.
+                sizes="(min-width: 768px) 100vw, 250vw"
+                // Whole glass, no extra zoom: the crop is shifted so the glass (74% across
+                // the frame) lands mid-box: 91% on the 4:5 phone box, 100% on the square.
+                className="object-cover object-[91%_50%] md:object-[100%_50%]"
               />
             </div>
-            <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-espresso/60 to-transparent" />
+            <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-espresso/40 via-transparent to-transparent" />
           </div>
 
           <ol className="mt-16 border-t border-cream/15">

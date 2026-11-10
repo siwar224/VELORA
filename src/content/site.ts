@@ -47,6 +47,11 @@ export const stage = {
       cta: { label: "See the menu", href: "#menu" },
     },
   ],
+  /** Rotating circular badge in the hero; clicking it scrolls to the next beat. */
+  badge: {
+    text: "Cold · Slow · Deliberate · Poured to order · ",
+    label: "Scroll to the next chapter",
+  },
 } as const;
 
 /** Caramel band between the stage and the story. */
@@ -83,49 +88,156 @@ export const story = {
       body: "Pulled to order and poured straight over the ice, finished with whole or oat milk. In your hands within ninety seconds of the shot.",
     },
   ],
-  imageAlt: "Close-up of cold condensation beading on a glass of iced latte.",
+  imageAlt: "The finished iced latte, beaded with cold condensation, on a walnut table.",
 } as const;
 
-export type MenuItem = { name: string; note: string; price: string; frame: number };
+export type MenuItem = {
+  name: string;
+  /** Recipe / process line. */
+  detail: string;
+  /** Tasting notes, shown as tags. */
+  notes: string[];
+  price: string;
+  /** Product photo in /public/menu (served optimised through next/image). */
+  image: string;
+  alt: string;
+  /** CSS object-position keeping the product centred when the photo is cropped (default "50% 45%"). */
+  focus?: string;
+  /** Photo width ÷ height when not square, so crops request a sharp enough file (default 1). */
+  aspect?: number;
+  tag?: "Signature" | "Seasonal";
+};
 
 export const menu = {
   label: "The Menu",
   heading: "Poured cold, written plainly.",
-  // `frame` = which sequence frame is used as the preview image.
   tabs: [
     {
       id: "cold",
       label: "Cold",
       items: [
-        { name: "Velvet Iced Latte", note: "Double ristretto, whole milk, clear ice. Milk chocolate, hazelnut.", price: "€5.50", frame: 1 },
-        { name: "Cold Brew", note: "Eighteen-hour steep, Brazil Cerrado. Cocoa, brown sugar, round body.", price: "€5.20", frame: 90 },
-        { name: "Caramel Cortado", note: "Burnt-sugar caramel, short milk, one large cube. Toffee, sea salt.", price: "€5.80", frame: 180 },
-        { name: "Espresso Tonic", note: "Ethiopia Yirgacheffe over tonic and orange peel. Bergamot, bright.", price: "€6.00", frame: 267 },
+        {
+          name: "Velvet Iced Latte",
+          detail: "Double ristretto, whole milk, clear ice.",
+          notes: ["Milk chocolate", "Hazelnut"],
+          price: "€5.50",
+          image: "/menu/Cold/Velvet Iced Latte.png",
+          alt: "Velvet Iced Latte: espresso swirling into milk over clear ice in a tall glass.",
+          focus: "83% 55%", // wide photo, glass on the right
+          aspect: 16 / 9,
+          tag: "Signature",
+        },
+        {
+          name: "Cold Brew",
+          detail: "Eighteen-hour steep, Brazil Cerrado.",
+          notes: ["Cocoa", "Brown sugar", "Round body"],
+          price: "€5.20",
+          image: "/menu/Cold/Cold_Brew.png",
+          alt: "Cold brew over ice in a tall glass beaded with condensation.",
+        },
+        {
+          name: "Caramel Cortado",
+          detail: "Burnt-sugar caramel, short milk, one large cube.",
+          notes: ["Toffee", "Sea salt"],
+          price: "€5.80",
+          image: "/menu/Cold/Caramel_Cortado.png",
+          alt: "Caramel cortado with a single large ice cube in a short glass.",
+        },
+        {
+          name: "Espresso Tonic",
+          detail: "Ethiopia Yirgacheffe over tonic and orange peel.",
+          notes: ["Bergamot", "Bright", "Sparkling"],
+          price: "€6.00",
+          image: "/menu/Cold/Espresso_Tonic.png",
+          alt: "Espresso tonic: espresso layered over sparkling tonic with ice and orange peel.",
+          tag: "Seasonal",
+        },
       ],
     },
     {
       id: "espresso",
       label: "Espresso",
       items: [
-        { name: "Espresso", note: "Seasonal house blend, 18 g in, 36 g out. Dark chocolate, cherry.", price: "€2.80", frame: 1 },
-        { name: "Cortado", note: "Equal parts espresso and steamed milk. Caramel, soft finish.", price: "€3.80", frame: 90 },
-        { name: "Flat White", note: "Double ristretto, silky microfoam. Praline, cream.", price: "€4.50", frame: 180 },
-        { name: "Filter of the Day", note: "Single origin, brewed by hand. Ask what is on the bar.", price: "€4.20", frame: 267 },
+        {
+          name: "Espresso",
+          detail: "Seasonal house blend, 18 g in, 36 g out.",
+          notes: ["Dark chocolate", "Cherry"],
+          price: "€2.80",
+          image: "/menu/Espresso/Espresso.png",
+          alt: "A double espresso with thick golden crema in a small glass.",
+        },
+        {
+          name: "Cortado",
+          detail: "Equal parts espresso and steamed milk.",
+          notes: ["Caramel", "Soft finish"],
+          price: "€3.80",
+          image: "/menu/Espresso/Cortado.png",
+          alt: "Cortado with latte art in a short glass.",
+        },
+        {
+          name: "Flat White",
+          detail: "Double ristretto, silky microfoam.",
+          notes: ["Praline", "Cream"],
+          price: "€4.50",
+          image: "/menu/Espresso/Flat_White.png",
+          alt: "Flat white with rosetta latte art in a ceramic cup and saucer.",
+          tag: "Signature",
+        },
+        {
+          name: "Filter of the Day",
+          detail: "Single origin, brewed by hand. Ask what is on the bar.",
+          notes: ["Changes daily"],
+          price: "€4.20",
+          image: "/menu/Espresso/Filter_of_the_Day.png",
+          alt: "Steaming filter coffee in a speckled stoneware mug.",
+        },
       ],
     },
     {
       id: "beans",
       label: "Beans",
       items: [
-        { name: "Ethiopia Yirgacheffe", note: "Washed, 250 g. Jasmine, bergamot, white peach.", price: "€18", frame: 1 },
-        { name: "Colombia Huila", note: "Washed, 250 g. Red apple, panela, cocoa nib.", price: "€16", frame: 90 },
-        { name: "Kenya Nyeri AA", note: "Washed, 250 g. Blackcurrant, grapefruit, syrupy.", price: "€21", frame: 180 },
-        { name: "Brazil Cerrado", note: "Natural, 250 g. Hazelnut, milk chocolate, low acidity.", price: "€14", frame: 267 },
+        {
+          name: "Ethiopia Yirgacheffe",
+          detail: "Washed · 250 g",
+          notes: ["Jasmine", "Bergamot", "White peach"],
+          price: "€18",
+          image: "/menu/Beans/Ethiopia_Yirgacheffe.png",
+          alt: "A 250 g bag of Ethiopia Yirgacheffe beans with roasted beans beside it.",
+        },
+        {
+          name: "Colombia Huila",
+          detail: "Washed · 250 g",
+          notes: ["Red apple", "Panela", "Cocoa nib"],
+          price: "€16",
+          image: "/menu/Beans/Colombia_Huila.png",
+          alt: "A 250 g bag of Colombia Huila beans with a window showing the roasted beans.",
+        },
+        {
+          name: "Kenya Nyeri AA",
+          detail: "Washed · 250 g",
+          notes: ["Blackcurrant", "Grapefruit", "Syrupy"],
+          price: "€21",
+          image: "/menu/Beans/Kenya_Nyeri_AA.png",
+          alt: "A 250 g bag of Kenya Nyeri AA beans with roasted beans beside it.",
+          tag: "Seasonal",
+        },
+        {
+          name: "Brazil Cerrado",
+          detail: "Natural · 250 g",
+          notes: ["Hazelnut", "Milk chocolate", "Low acidity"],
+          price: "€14",
+          image: "/menu/Beans/Brazil Cerrado.png",
+          alt: "A bag of Brazil Cerrado beans next to a small bowl of roasted beans.",
+          focus: "55% 55%", // landscape photo, bag slightly right of centre
+          aspect: 3 / 2,
+        },
       ],
     },
   ] satisfies { id: string; label: string; items: MenuItem[] }[],
   footnote: "Whole, oat or almond milk at no extra cost. Decaf on request.",
   tapHint: "Tap a drink to see it",
+  notesLabel: "Tasting notes",
 } as const;
 
 export const quote = {
