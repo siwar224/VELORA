@@ -5,6 +5,8 @@
 :root {
   --espresso: #1e120b;
   --caramel: #b8742e;
+  /* Caramel for small text on cream/milk: #B8742E is only ~3:1 there, this is ≥ 5:1. */
+  --caramel-deep: #8a541e;
   --cream: #f2e6d3;
   --milk: #fbf6ee;
 }
@@ -12,6 +14,7 @@
 @theme inline {
   --color-espresso: var(--espresso);
   --color-caramel: var(--caramel);
+  --color-caramel-deep: var(--caramel-deep);
   --color-cream: var(--cream);
   --color-milk: var(--milk);
 

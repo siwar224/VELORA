@@ -245,10 +245,13 @@ function buildTimeline(
   // Pad to the exact total so scroll length maps 1:1 onto the config.
   tl.set({}, {}, wipeStart + wipe);
 
+  const header = document.querySelector<HTMLElement>(".site-nav");
   tl.eventCallback("onUpdate", () => {
     const t = tl.time();
-    // Nav: no bar over the frames; glass from the moment the cream wipe starts.
+    // Nav: no bar over the frames; glass from the moment the cream wipe starts,
+    // tinted for cream once the wipe has covered the top half of the screen.
     setNav(t >= wipeStart ? "solid" : "clear");
+    if (header) header.dataset.theme = t >= wipeStart + wipe / 2 ? "light" : "dark";
     if (debug) {
       const phase = t <= last ? "" : t < wipeStart ? " · push-in" : " · wipe";
       debug.textContent = `frame ${Math.round(seq.frame) + 1}/${set.count}${phase}`;

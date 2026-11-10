@@ -11,8 +11,8 @@ export default function Menu() {
       className="bg-milk px-5 py-28 text-espresso md:px-10 md:py-40 lg:px-20"
     >
       <div className="mx-auto max-w-[90rem]">
-        <p className="eyebrow flex items-center gap-4 text-caramel">
-          <span aria-hidden="true" className="h-px w-10 bg-caramel" />
+        <p className="eyebrow flex items-center gap-4 text-caramel-deep">
+          <span aria-hidden="true" className="h-px w-10 bg-caramel-deep" />
           {menu.label}
         </p>
         <h2 id="menu-heading" className="mt-6 font-serif text-5xl font-light md:text-7xl">
@@ -30,7 +30,7 @@ export default function Menu() {
                   fill
                   // Request ~1.7x the card width: the image is scaled up to crop onto the glass.
                   sizes="(min-width: 1024px) 43vw, (min-width: 640px) 85vw, 170vw"
-                  className="scale-[1.6] object-cover object-[76%_55%] transition-transform duration-700 ease-out group-hover:scale-[1.7]"
+                  className="scale-[1.6] object-cover object-[76%_55%] transition-transform duration-700 ease-out group-hover:scale-[1.7] motion-reduce:transition-none"
                 />
               </div>
               <div className="mt-6 flex items-baseline justify-between gap-4 border-t border-espresso/15 pt-4">

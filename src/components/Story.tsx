@@ -9,8 +9,8 @@ export default function Story() {
       className="bg-cream px-5 py-28 text-espresso md:px-10 md:py-40 lg:px-20"
     >
       <div className="mx-auto max-w-[90rem]">
-        <p className="eyebrow flex items-center gap-4 text-caramel">
-          <span aria-hidden="true" className="h-px w-10 bg-caramel" />
+        <p className="eyebrow flex items-center gap-4 text-caramel-deep">
+          <span aria-hidden="true" className="h-px w-10 bg-caramel-deep" />
           {story.label}
         </p>
 
@@ -31,7 +31,7 @@ export default function Story() {
         <dl className="mt-20 grid grid-cols-3 border-t border-espresso/15">
           {story.stats.map((s) => (
             <div key={s.label} className="border-r border-espresso/15 px-4 pt-8 first:pl-0 last:border-r-0 md:px-8">
-              <dt className="eyebrow text-espresso/60">{s.label}</dt>
+              <dt className="eyebrow text-espresso/75">{s.label}</dt>
               <dd className="mt-3 font-serif text-4xl font-light md:text-6xl">{s.value}</dd>
             </div>
           ))}
