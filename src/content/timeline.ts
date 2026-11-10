@@ -5,8 +5,10 @@
 // makes "beat 2 appears at frame 40" literally `at: 40`.
 // Open the site with `?debug` to see the live frame number while you scroll.
 //
-// Current values follow CLAUDE.md's beats. Measured from the frames, the big
-// splash actually runs ~70–205 and condensation starts ~225, see the README.
+// Values are measured from the frames (CLAUDE.md's original ranges were off):
+//   1–20 calm · 21–60 ice drops in gently · ~70–205 splashes · ~205–225 settles
+//   · ~225–326 condensation. Brief's original values: arrival.out 24,
+//   pour 40–130, finish.in 232.
 
 export const timeline = {
   /** Total pinned scroll length, in viewport heights. */
@@ -17,12 +19,12 @@ export const timeline = {
   fadeFrames: 12,
 
   beats: {
-    // Hero: visible from the start, leaves as the ice starts falling.
-    arrival: { out: 24 },
-    // "Crafted in motion": during the splash.
-    pour: { in: 40, out: 130 },
+    // Hero: stays while the ice drops in gently, clears just before the first splash.
+    arrival: { out: 50 },
+    // "Crafted in motion": across the whole splash phase.
+    pour: { in: 68, out: 200 },
     // "Worth savouring": as condensation forms; stays until the wipe.
-    finish: { in: 232 },
+    finish: { in: 222 },
   },
 
   /** After the last frame: slow push-in on the glass. Length in frame units of scroll. */
