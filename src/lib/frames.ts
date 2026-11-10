@@ -11,6 +11,8 @@ export type FrameSet = FrameSetManifest & {
   height: number;
   focalX: number;
   focalY: number;
+  /** Horizontal extent of the glass in the frame (fractions of width), for layout around it. */
+  glassX: readonly [number, number];
 };
 
 // The manifest says what exists on disk; timeline.lastFrame says how much of it plays.
@@ -22,6 +24,7 @@ export const desktopFrames: FrameSet = {
   height: 1080,
   focalX: 0.74, // glass sits at ~61–87% of the width
   focalY: 0.5,
+  glassX: [0.61, 0.87],
 };
 
 /**
@@ -38,6 +41,7 @@ export const mobileFrames: FrameSet | null = m.mobile
       height: 1920,
       focalX: 0.5,
       focalY: 0.5,
+      glassX: [0.25, 0.75],
     }
   : null;
 

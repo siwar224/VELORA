@@ -3,6 +3,9 @@
 import { getImageProps } from "next/image";
 import { useEffect, useRef, type RefObject } from "react";
 import CanvasSequence, { glassScreenX, type CanvasSequenceHandle } from "@/components/CanvasSequence";
+import HeroAmbient from "@/components/HeroAmbient";
+import HeroBadge from "@/components/HeroBadge";
+import HeroMotion from "@/components/HeroMotion";
 import { reportFrameProgress } from "@/lib/preload";
 import { stage } from "@/content/site";
 import { timeline as T } from "@/content/timeline";
@@ -35,6 +38,8 @@ const posterMobile = mobileFrames
 export default function ScrollStage() {
   const rootRef = useRef<HTMLElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
+  const fxRef = useRef<HTMLDivElement>(null); // inner media layer: hero intro, breathing, parallax
+  const textRef = useRef<HTMLDivElement>(null); // wrapper around the beats: text parallax
   const canvasRef = useRef<CanvasSequenceHandle>(null);
   const debugRef = useRef<HTMLOutputElement>(null);
   const refreshedAfterEager = useRef(false);
@@ -108,19 +113,28 @@ export default function ScrollStage() {
         aria-hidden="true"
         className="absolute inset-0 will-change-transform motion-reduce:sticky motion-reduce:top-0 motion-reduce:h-svh"
       >
-        <picture>
-          <source media={REDUCE} srcSet={posterReduced.srcSet} sizes="100vw" />
-          {posterMobile && <source media={MOBILE_QUERY} srcSet={posterMobile.srcSet} sizes="100vw" />}
-          <img {...poster} alt="" className={`poster-focal absolute inset-0 h-full w-full ${posterMobile ? "poster-mobile-set" : ""}`} />
-        </picture>
-        <CanvasSequence ref={canvasRef} onProgress={onFrameProgress} className="absolute inset-0 h-full w-full motion-reduce:hidden" />
+        {/* Inner layer for the "living hero" (HeroMotion): its own transforms stack
+            with the push-in on the outer layer instead of fighting it. */}
+        <div ref={fxRef} className="absolute inset-0 will-change-transform">
+          <picture>
+            <source media={REDUCE} srcSet={posterReduced.srcSet} sizes="100vw" />
+            {posterMobile && <source media={MOBILE_QUERY} srcSet={posterMobile.srcSet} sizes="100vw" />}
+            <img {...poster} alt="" className={`poster-focal absolute inset-0 h-full w-full ${posterMobile ? "poster-mobile-set" : ""}`} />
+          </picture>
+          <CanvasSequence ref={canvasRef} onProgress={onFrameProgress} className="absolute inset-0 h-full w-full motion-reduce:hidden" />
+        </div>
 
         {/* Legibility: espresso fade from the left on wide screens, stronger from the bottom below 1100px. */}
         <div className="absolute inset-0 bg-gradient-to-t from-espresso/95 via-espresso/55 via-45% to-espresso/0 wide:bg-gradient-to-r wide:from-espresso/90 wide:via-espresso/55 wide:via-35% wide:to-espresso/0 wide:to-60%" />
       </div>
 
+      {/* Light sweep + drifting particles (between the image and the text). */}
+      <HeroAmbient />
+
       <p className="sr-only">{stage.canvasDescription}</p>
 
+      {/* Text wrapper: mouse parallax moves this; the scroll timeline moves the beats inside. */}
+      <div ref={textRef} className="absolute inset-0 motion-reduce:static">
       {stage.beats.map((beat, i) => {
         const Heading = i === 0 ? "h1" : "h2";
         return (
@@ -130,10 +144,11 @@ export default function ScrollStage() {
             // Beats after the first start hidden; the timeline reveals them.
             // Reduced motion: each beat is a normal full-screen block over the sticky backdrop.
             // Below 1100px ("wide"): text in the bottom third; above: vertically centred left column.
-            className={`absolute inset-0 flex items-end px-5 pb-[12svh] md:px-10 wide:items-center wide:px-20 wide:pb-0 motion-reduce:relative motion-reduce:visible motion-reduce:h-svh motion-reduce:opacity-100 ${i === 0 ? "motion-reduce:-mt-[100svh]" : "invisible opacity-0"}`}
+            // `gutter-x` is shared with the nav so the logo and the text line up.
+            className={`gutter-x absolute inset-0 flex items-end pb-[12svh] wide:items-center wide:pb-0 motion-reduce:relative motion-reduce:visible motion-reduce:h-svh motion-reduce:opacity-100 ${i === 0 ? "motion-reduce:-mt-[100svh]" : "invisible opacity-0"}`}
           >
-            {/* Wide: capped at 40vw so the column ends before the glass (which starts ~55-60% across). */}
-            <div className="max-w-xl md:max-w-[42vw] wide:max-w-[min(36rem,40vw)]">
+            {/* Wide: --hero-col = min(36rem, 40vw), ends before the glass (~55-60% across). */}
+            <div className="max-w-xl md:max-w-[42vw] wide:max-w-(--hero-col)">
               <p data-reveal className="eyebrow flex items-center gap-4 text-caramel">
                 <span aria-hidden="true" className="h-px w-10 bg-caramel" />
                 {beat.label}
@@ -161,6 +176,11 @@ export default function ScrollStage() {
           </article>
         );
       })}
+      </div>
+
+      {/* Rotating badge (above the text layer so it stays clickable) + hero motion. */}
+      <HeroBadge root={rootRef} />
+      <HeroMotion root={rootRef} fx={fxRef} text={textRef} />
 
       {/* Optional colour wipe (timeline.wipe.frames; currently off). */}
       <div data-wipe aria-hidden="true" className="absolute inset-0 bg-cream [clip-path:inset(100%_0_0_0)] motion-reduce:hidden" />
@@ -196,6 +216,7 @@ function buildTimeline(
   const tl = gsap.timeline({
     defaults: { ease: "none" },
     scrollTrigger: {
+      id: "stage", // looked up by HeroBadge to scroll to a beat
       trigger: root,
       start: "top top",
       // Whole timeline maps onto this much scroll; recomputed on resize.

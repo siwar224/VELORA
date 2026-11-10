@@ -5,12 +5,14 @@ import { useEffect, useRef } from "react";
 import { quote } from "@/content/site";
 import { desktopFrames, frameSrc } from "@/lib/frames";
 import { gsap, MOTION_OK } from "@/lib/gsap";
+import { idleEffect } from "@/lib/idle";
 
 /** Full-bleed pull quote over the finished drink, with a slow parallax background. */
 export default function Quote() {
   const rootRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
+  // Set up in its own idle task, not inside React's hydration task (keeps TBT low).
+  useEffect(() => idleEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const mm = gsap.matchMedia(root);
@@ -22,7 +24,7 @@ export default function Quote() {
       });
     });
     return () => mm.revert();
-  }, []);
+  }), []);
 
   return (
     <section

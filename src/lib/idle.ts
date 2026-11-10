@@ -14,6 +14,25 @@ export function onIdle(cb: () => void, timeout = 1200): () => void {
 }
 
 /**
+ * useEffect helper: runs `setup` only once `subscribe` fires (e.g. onPreloaderDone),
+ * so work that isn't needed before then stays out of the page-load window.
+ *   useEffect(() => effectAfter(onPreloaderDone, () => { …; return () => …; }), []);
+ */
+export function effectAfter(
+  subscribe: (listener: () => void) => () => void,
+  setup: () => void | (() => void),
+): () => void {
+  let cleanup: void | (() => void);
+  const unsubscribe = subscribe(() => {
+    cleanup = setup();
+  });
+  return () => {
+    unsubscribe();
+    cleanup?.();
+  };
+}
+
+/**
  * useEffect helper: runs `setup` in an idle task and returns the cleanup React
  * expects (cancels the pending setup, or undoes it if it already ran).
  *   useEffect(() => idleEffect(() => { …; return () => …; }), []);

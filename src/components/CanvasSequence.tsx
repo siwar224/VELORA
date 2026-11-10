@@ -30,6 +30,12 @@ export function glassScreenX(cw: number, ch: number, set: FrameSet) {
   return (dx + set.focalX * dw) / cw;
 }
 
+/** Left and right edges of the glass on screen, in CSS pixels. */
+export function glassScreenEdges(cw: number, ch: number, set: FrameSet) {
+  const { dx, dw } = coverRect(cw, ch, set);
+  return { left: dx + set.glassX[0] * dw, right: dx + set.glassX[1] * dw };
+}
+
 export type CanvasSequenceHandle = {
   /** Show a 0-based frame index. Cheap to call every tick: only redraws on change. */
   setFrame: (index: number) => void;

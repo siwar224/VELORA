@@ -26,6 +26,48 @@
   --breakpoint-wide: 68.75rem;
 }
 
+/* Hero text column width (wide layout). Shared by the beats and the 1600px+ nav. */
+:root {
+  --hero-col: min(36rem, 40vw);
+}
+
+/* One horizontal gutter for the nav and the hero, so the logo's left edge and the
+   hero text's left edge line up at every width. */
+@utility gutter-x {
+  padding-inline: 1.25rem;
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+  @media (width >= 68.75rem) {
+    padding-inline: 5rem;
+  }
+}
+
+/* ---- Hero life (HeroLife.tsx). ---- */
+/* Soft caramel light sweeping across the wood. Moved with transform only (GPU),
+   blended with soft-light. Paused while the hero is off screen. */
+@keyframes hero-sweep {
+  0% {
+    transform: translate3d(-120%, 0, 0) skewX(-14deg);
+  }
+  60%,
+  100% {
+    transform: translate3d(320%, 0, 0) skewX(-14deg);
+  }
+}
+.hero-sweep {
+  /* `both`: sit at the first keyframe (off screen, left) during the start delay. */
+  animation: hero-sweep 16s cubic-bezier(0.45, 0, 0.25, 1) 6s infinite both;
+}
+[data-hero-paused="true"] .hero-sweep {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-sweep {
+    animation: none;
+  }
+}
+
 /* ---- Vignette: stage only (GrainOverlay). Hidden once the stage hands over. ---- */
 .vignette {
   transition: opacity 0.6s ease;
@@ -129,6 +171,20 @@ html[data-nav="solid"] .site-nav[data-theme="light"] {
   background-color: rgb(251 246 238 / 0.72);
   border-bottom-color: rgb(30 18 11 / 0.08);
 }
+/* 1440px+ (where the hero column is a full 36rem): over the frames, the nav links
+   and ORDER AHEAD end at the hero text column (gutter + column), so they never sit
+   over the glass or the falling ice. Moved with a transform, never layout, so it
+   can't cause layout shift; once the stage hands over (solid glass bar) the group
+   glides back to the right edge. 100% = the track's own width (the nav width). */
+.nav-cluster {
+  transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (width >= 90rem) {
+  html:not([data-nav="solid"]) .nav-cluster {
+    transform: translateX(calc(-100% + var(--hero-col) + 10rem));
+  }
+}
+
 /* Slide away on scroll down; always visible while it has keyboard focus. */
 .site-nav[data-hidden="true"]:not(:focus-within) {
   transform: translateY(-100%);

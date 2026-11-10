@@ -51,6 +51,22 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
 - The preloader is rendered at page level and gets frame progress from `lib/preload.ts`
   (a pinned element would otherwise trap it under the nav).
 - The newsletter form is frontend-only: it validates and confirms, sends nothing.
+- **Living hero** (all off for reduced motion, paused once the stage scrolls away, mouse
+  effects on fine pointers only), layered on wrappers the scroll timeline never touches:
+  - `Preloader`: the wordmark glides into the nav logo (FLIP), then `markPreloaderDone()`.
+  - `HeroMotion`: intro (media 1.08 + blur 6px → sharp, h1 line reveal), breathing
+    1.02 ↔ 1.055 (~18 s), mouse parallax (media ±12 px, text ±6 px, `gsap.quickTo`).
+  - `HeroAmbient`: ~50 drifting cream/caramel motes (canvas, 30 fps cap, DPR-aware) and a
+    soft-light caramel sweep across the wood (CSS transform animation).
+  - `HeroBadge`: rotating SVG text badge (24 s/turn, faster with scroll velocity) placed
+    between the text and the glass from the glass's computed position; click → next beat.
+  - Setup that isn't needed before the reveal waits for the preloader handover
+    (`effectAfter` in `lib/idle.ts`); other section setup runs in idle tasks.
+- Nav and hero text share one gutter (`gutter-x`), so the logo lines up with the text at
+  every width; from 1440 px the nav links + ORDER AHEAD end at the hero text column over the
+  frames (moved with a transform, so no layout shift) and slide back right after the stage.
+- Menu photos live in `public/menu/{Cold,Espresso,Beans}`; each item in `site.ts` points to
+  its photo, with a focal point and aspect for wide photos. Served as AVIF/WebP.
 - The LCP element is a real `<picture>` poster (frame 1), not the canvas.
 - **Reduced motion:** no pin, no scrub, no smooth scroll and no frame downloads. The
   finished drink is a static backdrop and the beats stack as normal sections.
@@ -63,6 +79,15 @@ Open `http://localhost:3000/?debug` to see the live frame number while scrolling
 - Lighthouse desktop, production build (Phase 2): Performance 97–98, Accessibility 100,
   Best Practices 100, SEO 100 (LCP 0.7 s, CLS 0). Scores swing a lot if the machine is
   busy; compare builds back to back under the same load.
+- Phase 3 (living hero), checked with Playwright at 1440×900, 1920×1080 and 390×844: logo
+  and hero text aligned (0 px), ORDER AHEAD clear of the glass from 1440 px (160–906 px),
+  badge clear of glass and text, badge click → frame 80 → 234, everything paused after the
+  hero, CLS 0, no console errors, 60 fps idle; scroll ≈ 45–57 fps, the same as Phase 2
+  (limited by the frame-sequence drawing, not the new effects).
+- Lighthouse on the Phase 3 build, on a development machine running other heavy apps:
+  Performance 67–90 (A11y / Best Practices / SEO 100, CLS 0, LCP 0.8 s). Most of the cost
+  is one early layout/render task that also appears with the hero effects off and swings
+  with machine load. Re-measure with PageSpeed Insights on the Vercel deployment.
 - Playwright at 1440×900 and 390×844: every section, menu hover/tabs and tap-to-expand,
   counters reach 4 / 48 / 10, one story step active at a time, badge open/closed at fixed
   Paris times, newsletter error and success, no horizontal scroll, one `<h1>`; hero text

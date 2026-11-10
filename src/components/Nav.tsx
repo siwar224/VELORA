@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { brand, nav } from "@/content/site";
 import { ScrollTrigger } from "@/lib/gsap";
+import { idleEffect } from "@/lib/idle";
 
 /**
  * Fixed nav with two looks (styles in globals.css, `.site-nav`):
@@ -17,7 +18,8 @@ export default function Nav() {
   const headerRef = useRef<HTMLElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Set up in its own idle task, not inside React's hydration task (keeps TBT low).
+  useEffect(() => idleEffect(() => {
     const header = headerRef.current;
     if (!header) return;
     const triggers = [
@@ -46,7 +48,7 @@ export default function Nav() {
       ),
     ];
     return () => triggers.forEach((t) => t.kill());
-  }, []);
+  }), []);
 
   return (
     <header
@@ -63,9 +65,11 @@ export default function Nav() {
       />
       <nav
         aria-label="Main"
-        className="relative mx-auto flex max-w-[90rem] items-center justify-between px-5 py-5 md:px-10 md:py-6"
+        // Full width with the same gutter as the hero text (`gutter-x`), so the logo
+        // lines up with it at every width.
+        className="gutter-x relative flex items-center py-5 md:py-6"
       >
-        <a href="#top" className="font-serif text-2xl tracking-[0.3em]">
+        <a href="#top" data-logo className="font-serif text-2xl tracking-[0.3em]">
           {brand.name}
           {/* Signature caramel dot after the wordmark. */}
           <span aria-hidden="true" className="-ml-[0.2em] text-caramel">
@@ -74,7 +78,11 @@ export default function Nav() {
           <span className="sr-only"> — home</span>
         </a>
 
-        <div className="flex items-center gap-6 md:gap-10">
+        {/* Links + ORDER AHEAD. Full-width track, right-aligned; from 1440px over the
+            frames it slides (transform only: no layout shift) to end at the hero text
+            column, so it never sits over the glass or the falling ice (globals.css). */}
+        <div className="nav-cluster gutter-x pointer-events-none absolute inset-0 flex items-center justify-end">
+        <div className="pointer-events-auto flex items-center gap-6 md:gap-10">
           <ul className="hidden items-center gap-8 md:flex">
             {nav.links.map((link) => (
               <li key={link.href}>
@@ -90,6 +98,7 @@ export default function Nav() {
           >
             {nav.cta.label}
           </a>
+        </div>
         </div>
       </nav>
     </header>
