@@ -12,6 +12,37 @@ public site, through a typed REST API served by a mock service worker. No backen
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Tailwind](https://img.shields.io/badge/Tailwind-v4-38bdf8) ![GSAP](https://img.shields.io/badge/GSAP-ScrollTrigger-88ce02) ![TanStack Query](https://img.shields.io/badge/TanStack_Query-v5-ff4154) ![MSW](https://img.shields.io/badge/MSW-v2-ff6a33)
 
+<p align="center">
+  <img src="docs/screenshots/03-scroll-end.jpg" alt="VELOR website: scroll-driven frame sequence of an iced latte splash with the heading Crafted in motion" width="100%">
+</p>
+
+<p align="center"><b><a href="https://velora-rho-lyart.vercel.app/">Live site</a></b> · <a href="https://velora-rho-lyart.vercel.app/admin/login">Dashboard</a></p>
+
+---
+
+## Screenshots
+
+### Brand website
+
+| Hero | Our Story |
+|---|---|
+| <img src="docs/screenshots/01-hero.jpg" alt="Hero section: Cold, slow, deliberate, with the iced latte and rotating badge"> | <img src="docs/screenshots/04-story.jpg" alt="Our Story section with counters: 4 partner farms, 48h roast to cup, 10kg per roast batch"> |
+| **Menu** | **Visit** |
+| <img src="docs/screenshots/05-menu.jpg" alt="Menu card with Cold, Espresso and Beans tabs and a photo preview"> | <img src="docs/screenshots/06-visit.jpg" alt="Visit footer with address, opening hours, live Open now badge and newsletter"> |
+
+### Operations dashboard
+
+| Overview | Orders board |
+|---|---|
+| <img src="docs/screenshots/07-admin-overview.jpg" alt="Dashboard overview with revenue, orders, average ticket, revenue chart and orders by hour"> | <img src="docs/screenshots/08-admin-orders.jpg" alt="Kanban orders board with New, Preparing, Ready and Picked up columns"> |
+| **Menu management** | **Opening hours** |
+| <img src="docs/screenshots/09-admin-menu.jpg" alt="Menu table with photos, categories, prices, stock and availability switches"> | <img src="docs/screenshots/10-admin-settings.jpg" alt="Settings page with weekly opening hours and Closed today option"> |
+
+<p align="center">
+  <img src="docs/screenshots/11-command-palette.jpg" alt="Command palette opened with Ctrl+K over the menu page" width="70%"><br>
+  <sub>⌘K / Ctrl+K command palette</sub>
+</p>
+
 ---
 
 ## Highlights
