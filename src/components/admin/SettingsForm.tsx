@@ -54,16 +54,22 @@ function SettingsEditor({ stored }: { stored: Settings }) {
     setDraft((s) => ({ ...s, schedule: { ...s.schedule, [d]: { ...s.schedule[d], ...patch } } }));
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  // Optimistic: the new hours apply at once. If the server refuses, the cache rolls back
+  // and a toast offers Retry; the form keeps what was typed (dirty stays true).
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (invalid.length) return;
-    try {
-      await save.mutateAsync({ ...draft, closedToday: { ...draft.closedToday, date: draft.closedToday.on ? today : draft.closedToday.date } });
-      dirty.current = false;
-      setStatus(t.saved);
-    } catch {
-      // The failure toast (with Retry) comes from the mutation hook; the draft is kept.
-    }
+    if (invalid.length || save.isPending) return;
+    dirty.current = false;
+    setStatus("");
+    save.mutate(
+      { ...draft, closedToday: { ...draft.closedToday, date: draft.closedToday.on ? today : draft.closedToday.date } },
+      {
+        onSuccess: () => setStatus(t.saved),
+        onError: () => {
+          dirty.current = true;
+        },
+      },
+    );
   };
 
   return (

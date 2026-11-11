@@ -27,7 +27,7 @@ import { menuQuery } from "@/lib/data/queries";
 import { LOW_STOCK } from "@/lib/data/stats";
 import type { Category, MenuItemRecord } from "@/lib/data/types";
 import MenuItemForm, { fromValues, type MenuFormValues } from "./MenuItemForm";
-import { useDeleteMenuItem, useSaveMenuItem, useSetAvailability } from "./mutations";
+import { isTempId, useDeleteMenuItem, usePendingMenuWrites, useSaveMenuItem, useSetAvailability } from "./mutations";
 import PageHeader from "./PageHeader";
 import QueryGate from "./QueryGate";
 import { MenuTableSkeleton } from "./skeletons";
@@ -54,6 +54,8 @@ export default function MenuTable() {
   const save = useSaveMenuItem();
   const remove = useDeleteMenuItem();
   const { mutate: toggleAvailable } = useSetAvailability();
+  const pendingWrites = usePendingMenuWrites();
+  const pendingKey = [...pendingWrites].sort().join("|");
   const router = useRouter();
   const params = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -118,7 +120,8 @@ export default function MenuTable() {
         header: t.columns.available,
         enableGlobalFilter: false,
         cell: ({ row: { original: m } }) => (
-          <Switch checked={m.available} onCheckedChange={(v) => toggleAvailable({ id: m.id, name: m.name, available: v })} aria-label={t.availableLabel(m.name)} />
+          <Switch checked={m.available} disabled={pendingWrites.has(m.id) || isTempId(m.id)}
+            onCheckedChange={(v) => toggleAvailable({ id: m.id, name: m.name, available: v })} aria-label={t.availableLabel(m.name)} />
         ),
       },
       {
@@ -127,7 +130,7 @@ export default function MenuTable() {
         cell: ({ row: { original: m } }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={t.rowActions(m.name)}>
+              <Button variant="ghost" size="icon" aria-label={t.rowActions(m.name)} disabled={isTempId(m.id)}>
                 <MoreHorizontal aria-hidden />
               </Button>
             </DropdownMenuTrigger>
@@ -149,7 +152,8 @@ export default function MenuTable() {
         ),
       },
     ],
-    [toggleAvailable],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingWrites is a new Set every render; pendingKey is its stable identity
+    [toggleAvailable, pendingKey],
   );
 
   const table = useReactTable({
@@ -167,14 +171,11 @@ export default function MenuTable() {
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  // Optimistic: the sheet closes and the table updates at once; if the server refuses, the
+  // change is undone and a toast offers Retry (see mutations.ts).
   const onSave = async (values: MenuFormValues) => {
-    try {
-      await save.mutateAsync(fromValues(values, editing));
-      setFormOpen(false);
-      setStatus(t.saved);
-    } catch {
-      // The failure toast (with Retry) comes from the mutation hook; the sheet stays open so nothing typed is lost.
-    }
+    save.mutate(fromValues(values, editing), { onSuccess: () => setStatus(t.saved) });
+    setFormOpen(false);
   };
 
   return (
@@ -235,7 +236,11 @@ export default function MenuTable() {
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className={row.original.available ? undefined : "bg-muted/40"}>
+                <TableRow
+                  key={row.id}
+                  aria-busy={isTempId(row.original.id) || undefined}
+                  className={isTempId(row.original.id) ? "opacity-70" : row.original.available ? undefined : "bg-muted/40"}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -249,7 +254,7 @@ export default function MenuTable() {
       </div>
       </QueryGate>
 
-      <MenuItemForm open={formOpen} item={editing} onOpenChange={setFormOpen} onSave={onSave} />
+      <MenuItemForm open={formOpen} item={editing} saving={save.isPending} onOpenChange={setFormOpen} onSave={onSave} />
 
       <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(undefined)}>
         <DialogContent>
@@ -261,15 +266,8 @@ export default function MenuTable() {
             </Button>
             <Button
               variant="destructive"
-              onClick={async () => {
-                if (deleting) {
-                  try {
-                    await remove.mutateAsync({ id: deleting.id, name: deleting.name });
-                    setStatus(t.deleted);
-                  } catch {
-                    // The failure toast (with Retry) comes from the mutation hook.
-                  }
-                }
+              onClick={() => {
+                if (deleting) remove.mutate({ id: deleting.id, name: deleting.name }, { onSuccess: () => setStatus(t.deleted) });
                 setDeleting(undefined);
               }}
             >

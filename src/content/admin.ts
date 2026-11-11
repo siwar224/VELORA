@@ -127,6 +127,7 @@ export const admin = {
       noImage: "No photo",
       available: "Available today",
       save: "Save",
+      saving: "Saving…",
       cancel: "Cancel",
       errors: {
         name: "Give the item a name (2–40 characters).",

@@ -8,7 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { admin } from "@/content/admin";
-import { createOrder, saveSettings } from "@/lib/data/api";
+import { createOrder } from "@/lib/data/api";
 import { isDefaultNetwork, useNetworkSim } from "@/lib/data/network-sim";
 import { menuQuery, qk, settingsQuery } from "@/lib/data/queries";
 import { shopToday } from "@/lib/data/schedule";
@@ -21,6 +21,7 @@ import AdminSidebar from "./AdminSidebar";
 import CommandPalette from "./CommandPalette";
 import ErrorPanel from "./ErrorPanel";
 import { showFailure } from "./errors";
+import { useSaveSettings } from "./mutations";
 import { isActive, NAV } from "./nav";
 import { isSignedIn, signOut, useAdminUi } from "./session";
 import Toaster from "./Toaster";
@@ -62,6 +63,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { collapsed: savedCollapsed, simulating } = useAdminUi();
   const network = useNetworkSim();
+  const saveSettings = useSaveSettings();
   const [narrow, setNarrow] = useState(false);
 
   // ---- Guard: no demo session → login (client-side only; this is a demo).
@@ -152,9 +154,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       const s = await qc.fetchQuery(settingsQuery());
       const today = shopToday();
       const on = !(s.closedToday.on && s.closedToday.date === today);
-      await saveSettings({ ...s, closedToday: { ...s.closedToday, on, date: today } });
-      void qc.invalidateQueries({ queryKey: qk.settings });
-      notify(on ? `${admin.settings.closedToday}: ${admin.settings.closed}` : `${admin.settings.closedToday}: ${admin.settings.open}`);
+      saveSettings.mutate(
+        { ...s, closedToday: { ...s.closedToday, on, date: today } },
+        { onSuccess: () => notify(on ? `${admin.settings.closedToday}: ${admin.settings.closed}` : `${admin.settings.closedToday}: ${admin.settings.open}`) },
+      );
     } catch (error) {
       showFailure(admin.errors.actions.closedToday, error, () => void toggleClosed());
     }

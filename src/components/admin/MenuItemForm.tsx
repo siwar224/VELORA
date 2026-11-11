@@ -75,11 +75,13 @@ type Props = {
   open: boolean;
   item?: MenuItemRecord; // undefined = add
   onOpenChange: (open: boolean) => void;
+  /** A save is in flight: the Save button is disabled so it cannot be submitted twice. */
+  saving?: boolean;
   onSave: (values: MenuFormValues) => Promise<void>;
 };
 
 /** Add / edit a menu item in a side sheet (react-hook-form + zod). */
-export default function MenuItemForm({ open, item, onOpenChange, onSave }: Props) {
+export default function MenuItemForm({ open, item, saving = false, onOpenChange, onSave }: Props) {
   const { register, control, handleSubmit, reset, formState } = useForm<MenuFormValues>({
     resolver: zodResolver(schema),
     defaultValues: toValues(item),
@@ -219,8 +221,8 @@ export default function MenuItemForm({ open, item, onOpenChange, onSave }: Props
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t.cancel}
           </Button>
-          <Button type="submit" form="menu-form" disabled={isSubmitting}>
-            {t.save}
+          <Button type="submit" form="menu-form" disabled={isSubmitting || saving}>
+            {saving ? t.saving : t.save}
           </Button>
         </SheetFooter>
       </SheetContent>

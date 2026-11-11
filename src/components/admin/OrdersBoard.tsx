@@ -25,7 +25,7 @@ import { admin } from "@/content/admin";
 import { boardQuery, menuQuery } from "@/lib/data/queries";
 import type { MenuItemRecord, Order, OrderStatus } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
-import { useMoveOrder } from "./mutations";
+import { useMoveOrder, usePendingMoves } from "./mutations";
 import PageHeader from "./PageHeader";
 import QueryGate from "./QueryGate";
 import { useAdminUi } from "./session";
@@ -60,13 +60,15 @@ function summary(order: Order, menu: MenuItemRecord[]) {
 
 type Move = (order: Order, status: OrderStatus) => void;
 
-function OrderCard({ order, menu, onMove, overlay = false }: { order: Order; menu: MenuItemRecord[]; onMove?: Move; overlay?: boolean }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: order.id, data: { status: order.status, number: order.number }, disabled: overlay });
+function OrderCard({ order, menu, onMove, busy = false, overlay = false }: { order: Order; menu: MenuItemRecord[]; onMove?: Move; busy?: boolean; overlay?: boolean }) {
+  // busy: this card has a move in flight, so it cannot be moved again until the server answers.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: order.id, data: { status: order.status, number: order.number }, disabled: overlay || busy });
   return (
     <article
       ref={overlay ? undefined : setNodeRef}
       aria-label={`Order ${order.number}, ${order.customer}`}
-      className={cn("rounded-lg border bg-card p-3 shadow-sm", isDragging && !overlay && "opacity-40", overlay && "rotate-1 shadow-xl ring-2 ring-caramel")}
+      aria-busy={busy || undefined}
+      className={cn("rounded-lg border bg-card p-3 shadow-sm transition-opacity", isDragging && !overlay && "opacity-40", busy && "opacity-70", overlay && "rotate-1 shadow-xl ring-2 ring-caramel")}
     >
       <div className="flex items-start gap-2">
         <button
@@ -97,7 +99,7 @@ function OrderCard({ order, menu, onMove, overlay = false }: { order: Order; men
       {!overlay && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="mt-2 h-9 w-full justify-between text-muted-foreground">
+            <Button variant="ghost" size="sm" disabled={busy} className="mt-2 h-9 w-full justify-between text-muted-foreground">
               {t.moveTo}
               <span className="sr-only"> (order {order.number})</span>
               <ChevronDown aria-hidden />
@@ -117,7 +119,7 @@ function OrderCard({ order, menu, onMove, overlay = false }: { order: Order; men
   );
 }
 
-function Column({ status, orders, menu, onMove, extra }: { status: OrderStatus; orders: Order[]; menu: MenuItemRecord[]; onMove: Move; extra?: number }) {
+function Column({ status, orders, menu, onMove, pending, extra }: { status: OrderStatus; orders: Order[]; menu: MenuItemRecord[]; onMove: Move; pending: Set<string>; extra?: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const headingId = `col-${status}`;
   return (
@@ -131,7 +133,7 @@ function Column({ status, orders, menu, onMove, extra }: { status: OrderStatus; 
       <div ref={setNodeRef} className="flex flex-1 flex-col gap-3 px-3 pb-3">
         {orders.length === 0 && <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t.empty}</p>}
         {orders.map((o) => (
-          <OrderCard key={o.id} order={o} menu={menu} onMove={onMove} />
+          <OrderCard key={o.id} order={o} menu={menu} onMove={onMove} busy={pending.has(o.id)} />
         ))}
         {!!extra && <p className="px-1 text-center text-xs text-muted-foreground">+{extra} {t.pickedUpToday.toLowerCase()}</p>}
       </div>
@@ -145,6 +147,7 @@ export default function OrdersBoard() {
   const board = useQuery(boardQuery());
   const menuQ = useQuery(menuQuery());
   const move = useMoveOrder();
+  const pending = usePendingMoves();
   const orders: Order[] = board.data ?? NONE;
   const menu: MenuItemRecord[] = menuQ.data ?? NONE;
   const simulating = useAdminUi((s) => s.simulating);
@@ -185,7 +188,7 @@ export default function OrdersBoard() {
     setActiveId(null);
     const order = byId(e.active.id);
     const target = e.over?.id as OrderStatus | undefined;
-    if (order && target && target !== order.status) move.mutate({ id: order.id, number: order.number, status: target });
+    if (order && target && target !== order.status && !pending.has(order.id)) move.mutate({ id: order.id, number: order.number, status: target });
   };
   const active = activeId ? byId(activeId) : undefined;
   const pickedShown = columns["picked-up"].slice(0, PICKED_SHOWN);
@@ -216,6 +219,7 @@ export default function OrdersBoard() {
               key={c}
               status={c}
               menu={menu}
+              pending={pending}
               onMove={(o, status) => move.mutate({ id: o.id, number: o.number, status })}
               orders={c === "picked-up" ? pickedShown : columns[c]}
               extra={c === "picked-up" ? columns[c].length - pickedShown.length : undefined}
