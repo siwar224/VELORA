@@ -183,3 +183,9 @@ long-lived immutable caching, and the mock worker with `no-store`. For a custom 
 
 Designed and built by [@siwar224](https://github.com/siwar224) as a frontend project. The brand, data and
 orders are fictional. No payment is taken and nothing leaves the browser.
+
+---
+
+## License
+
+© 2026 [@siwar224](https://github.com/siwar224). **All rights reserved.** This code is shared for viewing only: it may not be copied, reused or deployed without written permission. See [LICENSE](LICENSE).
