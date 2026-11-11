@@ -1,12 +1,14 @@
 "use client";
 
-import { Menu as MenuIcon, Search } from "lucide-react";
+import { Activity, Menu as MenuIcon, Search } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { admin } from "@/content/admin";
 import { createOrder, getOrders, getSettings, saveSettings } from "@/lib/data/api";
+import { isDefaultNetwork, useNetworkSim } from "@/lib/data/network-sim";
 import { shopToday } from "@/lib/data/schedule";
 import { ensureMocks } from "@/mocks/start";
 import { CUSTOMERS, randomLines } from "@/lib/data/seed";
@@ -48,6 +50,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toast, setToast] = useState("");
   const { collapsed: savedCollapsed, simulating } = useAdminUi();
+  const network = useNetworkSim();
   const [narrow, setNarrow] = useState(false);
 
   // ---- Guard: no demo session → login (client-side only; this is a demo).
@@ -61,7 +64,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       // READY GATE: wait for the mock server, then load (and, on the first visit, seed) the data.
       await ensureMocks();
       await useCatalog.persist.rehydrate();
-      await getOrders();
+      await getOrders().catch(() => undefined); // a failed warm-up shouldn't block the shell
       stop = startSync();
       setReady(true);
     })();
@@ -155,6 +158,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             {/* The page itself carries the <h1>; this is a compact visual title on phones only. */}
             <p aria-hidden="true" className="font-serif text-2xl md:hidden">{title}</p>
             <div className="ml-auto flex items-center gap-3">
+              {/* Visible whenever the network simulator is not at its defaults. */}
+              {!isDefaultNetwork(network) && (
+                <Link
+                  href="/admin/settings"
+                  aria-label={admin.network.indicatorLabel}
+                  className="flex h-11 items-center gap-2 rounded-md border border-caramel-deep/50 bg-accent px-3 text-sm text-caramel-deep"
+                >
+                  <Activity aria-hidden className="size-4" />
+                  <span className="hidden lg:inline">
+                    {admin.network.indicator(admin.network.latency[network.latency], admin.network.failures[network.failures].toLowerCase())}
+                  </span>
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
@@ -177,6 +193,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
+        onNetwork={(failures) => useNetworkSim.setState({ failures })}
         onNewOrder={newOrder}
         onToggleSimulator={() => useAdminUi.setState({ simulating: !simulating })}
         onToggleClosed={toggleClosed}

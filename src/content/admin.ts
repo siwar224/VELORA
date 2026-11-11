@@ -47,6 +47,8 @@ export const admin = {
     empty: "No results.",
     groups: { pages: "Go to", actions: "Actions" },
     actions: {
+      networkOff: "Network: turn simulated failures off",
+      networkFail: "Network: make every request fail",
       newOrder: "Create a test order",
       toggleSimulator: "Pause / resume incoming orders",
       toggleClosed: "Toggle “Closed today”",
@@ -153,6 +155,23 @@ export const admin = {
     save: "Save changes",
     saved: "Saved. The website is updated.",
     errors: { order: "Closing time must be after opening time." },
+  },
+
+  network: {
+    title: "Network simulator",
+    subtitle: "Makes the demo behave like a real, imperfect network: it affects every request, including the website's order form. Handy for showing loading and error states.",
+    latency: { label: "Speed", fast: "Fast", normal: "Normal", slow: "Slow 3G" },
+    latencyHint: { fast: "Responses take 50–150 ms.", normal: "Responses take 300–900 ms.", slow: "Responses take 1.5–3.5 s." },
+    failures: { label: "Failures", off: "Off", sometimes: "Sometimes", always: "Always" },
+    failuresHint: {
+      off: "No request fails.",
+      sometimes: "About 1 request in 15 fails; some never answer and time out after 8 s.",
+      always: "Every request fails with a server error.",
+    },
+    reset: "Reset to defaults",
+    saved: "Saved in this browser. Applies to the next request.",
+    indicator: (speed: string, failures: string) => `Network: ${speed}, failures ${failures}`,
+    indicatorLabel: "Simulated network is active. Open the network simulator.",
   },
 
   common: { loading: "Loading…", currency: "EUR", locale: "en-GB" },

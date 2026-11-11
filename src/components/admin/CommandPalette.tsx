@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, LogOut, MoonStar, Pause, Plus } from "lucide-react";
+import { ExternalLink, LogOut, MoonStar, Pause, Plus, Wifi, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
@@ -10,6 +10,7 @@ import { NAV } from "./nav";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onNetwork: (failures: "off" | "always") => void;
   onNewOrder: () => void;
   onToggleSimulator: () => void;
   onToggleClosed: () => void;
@@ -19,7 +20,7 @@ type Props = {
 const t = admin.palette;
 
 /** ⌘K / Ctrl+K command palette: jump to a page or run a quick action. */
-export default function CommandPalette({ open, onOpenChange, onNewOrder, onToggleSimulator, onToggleClosed, onLogout }: Props) {
+export default function CommandPalette({ open, onOpenChange, onNetwork, onNewOrder, onToggleSimulator, onToggleClosed, onLogout }: Props) {
   const router = useRouter();
 
   useEffect(() => {
@@ -52,6 +53,12 @@ export default function CommandPalette({ open, onOpenChange, onNewOrder, onToggl
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading={t.groups.actions}>
+          <CommandItem onSelect={run(() => onNetwork("off"))} className="min-h-11">
+            <Wifi aria-hidden /> {t.actions.networkOff}
+          </CommandItem>
+          <CommandItem onSelect={run(() => onNetwork("always"))} className="min-h-11">
+            <WifiOff aria-hidden /> {t.actions.networkFail}
+          </CommandItem>
           <CommandItem onSelect={run(onNewOrder)} className="min-h-11">
             <Plus aria-hidden /> {t.actions.newOrder}
           </CommandItem>
