@@ -105,16 +105,26 @@ export async function patchSettings(patch: Partial<Settings>): Promise<Settings>
 
 // ---------------------------------------------------------------- orders
 
-/** First visit: generate 30 days of history (the generator is only loaded when needed). */
+let seeding: Promise<Order[]> | null = null;
+
+/**
+ * First visit: generate 30 days of history (the generator is only loaded when needed).
+ * Single-flight: several requests arriving together (the board and the overview both
+ * load orders) share one seeding run instead of racing.
+ */
 async function ensureSeeded(): Promise<Order[]> {
   const state = await orders();
   if (state.seeded) return state.orders;
+  return (seeding ??= seed(state.orders).finally(() => (seeding = null)));
+}
+
+async function seed(existing: Order[]): Promise<Order[]> {
   const { seedOrders } = await import("@/lib/data/seed");
   const { menu, settings } = await catalog();
   const history = seedOrders(menu, settings);
   // Keep any orders placed from the public site before the history existed.
   const maxSeed = history.reduce((m, o) => Math.max(m, o.number), 1000);
-  const earlier = state.orders.map((o, i) => ({ ...o, number: maxSeed + i + 1 }));
+  const earlier = existing.map((o, i) => ({ ...o, number: maxSeed + i + 1 }));
   useOrders.setState({ orders: [...history, ...earlier], seeded: true });
   return useOrders.getState().orders;
 }

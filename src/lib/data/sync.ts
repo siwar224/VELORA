@@ -24,11 +24,16 @@ export function broadcast(topic: Topic) {
 
 const rehydrate = (topic: Topic) => (topic === "catalog" ? useCatalog : useOrders).persist.rehydrate();
 
-/** Keep this tab's stores in sync with other tabs. Returns a stop function. */
-export function startSync(onChange?: (topic: Topic) => void): () => void {
+/**
+ * Keep this tab in sync with other tabs. Returns a stop function.
+ * - Public site: rehydrates its stores from storage (the default).
+ * - Admin: passes `{ rehydrate: false }` and invalidates its TanStack queries in
+ *   `onChange` instead; the refetch goes through the API, which reads storage itself.
+ */
+export function startSync(onChange?: (topic: Topic) => void, { rehydrate: doRehydrate = true } = {}): () => void {
   const ch = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(CHANNEL);
   const handle = async (topic: Topic) => {
-    await rehydrate(topic);
+    if (doRehydrate) await rehydrate(topic);
     onChange?.(topic);
   };
   if (ch) ch.onmessage = (e: MessageEvent<{ topic: Topic }>) => void handle(e.data.topic);

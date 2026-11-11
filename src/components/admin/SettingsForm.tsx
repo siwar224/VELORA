@@ -1,47 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { admin } from "@/content/admin";
-import { saveSettings } from "@/lib/data/api";
+import { settingsQuery, useSaveSettings } from "@/lib/data/queries";
 import { shopToday } from "@/lib/data/schedule";
-import { useCatalog } from "@/lib/data/store";
 import type { Settings } from "@/lib/data/types";
 import PageHeader from "./PageHeader";
+import QueryGate from "./QueryGate";
+import { SettingsSkeleton } from "./skeletons";
 
 const t = admin.settings;
 const WEEK = [1, 2, 3, 4, 5, 6, 0]; // Monday first
 
 /** Opening hours per weekday + "closed today". Saving updates the website's "Open now" badge. */
 export default function SettingsForm() {
-  const stored = useCatalog((s) => s.settings);
+  const q = useQuery(settingsQuery());
+  return (
+    <QueryGate queries={[q]} skeleton={<SettingsSkeleton />}>
+      {q.data && <SettingsEditor stored={q.data} />}
+    </QueryGate>
+  );
+}
+
+function SettingsEditor({ stored }: { stored: Settings }) {
+  const save = useSaveSettings();
   const [draft, setDraft] = useState<Settings>(stored);
   const [status, setStatus] = useState("");
+  // Follow changes made elsewhere (another tab, the palette's "Closed today") unless
+  // the user has unsaved edits here: a background refetch must never wipe their typing.
+  const dirty = useRef(false);
+  useEffect(() => {
+    if (!dirty.current) setDraft(stored);
+  }, [stored]);
 
   const today = shopToday();
   const closedToday = draft.closedToday.on && draft.closedToday.date === today;
-  const invalid = WEEK.filter((d) => draft.schedule[d].open && draft.schedule[d].to <= draft.schedule[d].from);
+  // An open day needs both times, and closing must be after opening.
+  const invalid = WEEK.filter((d) => {
+    const h = draft.schedule[d];
+    return h.open && (!h.from || !h.to || h.to <= h.from);
+  });
 
   const setDay = (d: number, patch: Partial<Settings["schedule"][number]>) => {
+    dirty.current = true;
     setStatus("");
     setDraft((s) => ({ ...s, schedule: { ...s.schedule, [d]: { ...s.schedule[d], ...patch } } }));
   };
 
-  const save = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (invalid.length) return;
-    await saveSettings({ ...draft, closedToday: { ...draft.closedToday, date: draft.closedToday.on ? today : draft.closedToday.date } });
-    setStatus(t.saved);
+    try {
+      await save.mutateAsync({ ...draft, closedToday: { ...draft.closedToday, date: draft.closedToday.on ? today : draft.closedToday.date } });
+      dirty.current = false;
+      setStatus(t.saved);
+    } catch {
+      // Draft is kept so nothing is lost (error feedback arrives in block 5).
+    }
   };
 
   return (
-    <form onSubmit={save} noValidate>
+    <form onSubmit={onSubmit} noValidate>
       <PageHeader title={t.title} subtitle={t.subtitle}>
-        <Button type="submit" disabled={invalid.length > 0}>
+        <Button type="submit" disabled={invalid.length > 0 || save.isPending}>
           {t.save}
         </Button>
       </PageHeader>
@@ -97,6 +124,7 @@ export default function SettingsForm() {
                 id="closed-today"
                 checked={closedToday}
                 onCheckedChange={(on) => {
+                  dirty.current = true;
                   setStatus("");
                   setDraft((s) => ({ ...s, closedToday: { ...s.closedToday, on, date: today } }));
                 }}
@@ -109,7 +137,11 @@ export default function SettingsForm() {
                 className="h-11"
                 value={draft.closedToday.note}
                 maxLength={80}
-                onChange={(e) => setDraft((s) => ({ ...s, closedToday: { ...s.closedToday, note: e.target.value } }))}
+                onChange={(e) => {
+                  dirty.current = true;
+                  setStatus("");
+                  setDraft((s) => ({ ...s, closedToday: { ...s.closedToday, note: e.target.value } }));
+                }}
               />
             </div>
           </CardContent>

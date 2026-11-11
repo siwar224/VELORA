@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Activity, Menu as MenuIcon, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -7,12 +8,12 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { admin } from "@/content/admin";
-import { createOrder, getOrders, getSettings, saveSettings } from "@/lib/data/api";
+import { createOrder, saveSettings } from "@/lib/data/api";
 import { isDefaultNetwork, useNetworkSim } from "@/lib/data/network-sim";
+import { menuQuery, qk, settingsQuery } from "@/lib/data/queries";
 import { shopToday } from "@/lib/data/schedule";
 import { ensureMocks } from "@/mocks/start";
 import { CUSTOMERS, randomLines } from "@/lib/data/seed";
-import { useCatalog } from "@/lib/data/store";
 import { startSync } from "@/lib/data/sync";
 import { cn } from "@/lib/utils";
 import AdminSidebar from "./AdminSidebar";
@@ -24,17 +25,21 @@ import { isSignedIn, signOut, useAdminUi } from "./session";
 const ReadyContext = createContext(false);
 export const useAdminReady = () => useContext(ReadyContext);
 
-/** A simulated customer order (used by the timer and the palette). */
-async function simulateOrder() {
-  const menu = useCatalog.getState().menu;
+/** A simulated customer order (used by the timer and the palette), sent through the API. */
+async function simulateOrder(qc: QueryClient) {
+  const menu = await qc.ensureQueryData(menuQuery());
   const lines = randomLines(Math.random, menu.filter((m) => m.category !== "beans" || Math.random() < 0.1));
   if (!lines.length) return null;
-  return createOrder({
+  const order = await createOrder({
     lines,
     customer: CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)],
     pickupAt: Date.now() + (8 + Math.floor(Math.random() * 12)) * 60_000,
     source: "simulated",
   });
+  // The order changed the board and (stock) the menu.
+  void qc.invalidateQueries({ queryKey: qk.orders });
+  void qc.invalidateQueries({ queryKey: qk.menu });
+  return order;
 }
 
 /**
@@ -45,6 +50,7 @@ async function simulateOrder() {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const qc = useQueryClient();
   const [ready, setReady] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -61,11 +67,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     }
     let stop = () => {};
     (async () => {
-      // READY GATE: wait for the mock server, then load (and, on the first visit, seed) the data.
+      // READY GATE: nothing renders (so nothing requests) until the mock server is up.
       await ensureMocks();
-      await useCatalog.persist.rehydrate();
-      await getOrders().catch(() => undefined); // a failed warm-up shouldn't block the shell
-      stop = startSync();
+      // Changes made in other tabs (or the public site) refresh the matching queries.
+      stop = startSync(
+        (topic) => {
+          if (topic === "orders") void qc.invalidateQueries({ queryKey: qk.orders });
+          else {
+            void qc.invalidateQueries({ queryKey: qk.menu });
+            void qc.invalidateQueries({ queryKey: qk.settings });
+          }
+        },
+        { rehydrate: false },
+      );
       setReady(true);
     })();
     return () => stop();
@@ -88,9 +102,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, []);
 
   const newOrder = useCallback(async () => {
-    const o = await simulateOrder();
-    if (o) notify(admin.orders.newOrderToast(o.number, o.customer));
-  }, [notify]);
+    try {
+      const o = await simulateOrder(qc);
+      if (o) notify(admin.orders.newOrderToast(o.number, o.customer));
+    } catch {
+      // A failed simulated order is simply skipped (the board stays as it was).
+    }
+  }, [notify, qc]);
 
   // ---- Incoming-order simulator: every 20–40 s while on (not under reduced motion).
   useEffect(() => {
@@ -107,11 +125,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, [ready, simulating, newOrder]);
 
   const toggleClosed = async () => {
-    const s = await getSettings();
-    const today = shopToday();
-    const on = !(s.closedToday.on && s.closedToday.date === today);
-    await saveSettings({ ...s, closedToday: { ...s.closedToday, on, date: today } });
-    notify(on ? `${admin.settings.closedToday}: ${admin.settings.closed}` : `${admin.settings.closedToday}: ${admin.settings.open}`);
+    try {
+      const s = await qc.fetchQuery(settingsQuery());
+      const today = shopToday();
+      const on = !(s.closedToday.on && s.closedToday.date === today);
+      await saveSettings({ ...s, closedToday: { ...s.closedToday, on, date: today } });
+      void qc.invalidateQueries({ queryKey: qk.settings });
+      notify(on ? `${admin.settings.closedToday}: ${admin.settings.closed}` : `${admin.settings.closedToday}: ${admin.settings.open}`);
+    } catch {
+      // Error feedback arrives in block 5.
+    }
   };
 
   const logout = () => {

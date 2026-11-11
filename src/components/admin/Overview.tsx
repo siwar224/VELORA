@@ -3,6 +3,7 @@
 import { AlertTriangle, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { admin } from "@/content/admin";
 import { bestSellers, kpis, LOW_STOCK, lowStock, ordersByHour, revenueByDay } from "@/lib/data/stats";
-import { useCatalog, useOrders } from "@/lib/data/store";
+import { menuQuery, periodQuery } from "@/lib/data/queries";
+import type { MenuItemRecord, Order } from "@/lib/data/types";
 import PageHeader, { Segmented } from "./PageHeader";
+import QueryGate from "./QueryGate";
+import { OverviewSkeleton } from "./skeletons";
 
 const t = admin.overview;
 const locale = admin.common.locale;
@@ -40,11 +44,7 @@ function ChartTable<T extends Record<string, string | number>>({ caption, rows, 
   );
 }
 
-export default function Overview() {
-  const [days, setDays] = useState<7 | 30>(7);
-  const orders = useOrders((s) => s.orders);
-  const menu = useCatalog((s) => s.menu);
-
+function OverviewBody({ orders, menu, days }: { orders: Order[]; menu: MenuItemRecord[]; days: 7 | 30 }) {
   const data = useMemo(
     () => ({
       kpis: kpis(orders, days),
@@ -61,18 +61,6 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title={t.title} subtitle={t.subtitle}>
-        <Segmented
-          label={t.range.label}
-          value={days}
-          onChange={setDays}
-          options={[
-            { value: 7, label: t.range.d7 },
-            { value: 30, label: t.range.d30 },
-          ]}
-        />
-      </PageHeader>
-
       {/* KPIs */}
       <section aria-label={t.title} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {data.kpis.map((k) => {
@@ -200,6 +188,32 @@ export default function Overview() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+/** Overview page: header + range switch are static; the data sections load behind a skeleton. */
+export default function Overview() {
+  const [days, setDays] = useState<7 | 30>(7);
+  const orders = useQuery(periodQuery());
+  const menu = useQuery(menuQuery());
+
+  return (
+    <>
+      <PageHeader title={t.title} subtitle={t.subtitle}>
+        <Segmented
+          label={t.range.label}
+          value={days}
+          onChange={setDays}
+          options={[
+            { value: 7, label: t.range.d7 },
+            { value: 30, label: t.range.d30 },
+          ]}
+        />
+      </PageHeader>
+      <QueryGate queries={[orders, menu]} skeleton={<OverviewSkeleton />}>
+        {orders.data && menu.data && <OverviewBody orders={orders.data} menu={menu.data} days={days} />}
+      </QueryGate>
     </>
   );
 }

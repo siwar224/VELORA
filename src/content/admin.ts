@@ -174,5 +174,10 @@ export const admin = {
     indicatorLabel: "Simulated network is active. Open the network simulator.",
   },
 
+  errors: {
+    loadFailed: "We couldn't load this page.",
+    retry: "Retry",
+  },
+
   common: { loading: "Loading…", currency: "EUR", locale: "en-GB" },
 } as const;

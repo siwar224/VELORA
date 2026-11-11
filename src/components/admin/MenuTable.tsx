@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal, Plus, Search } from "lucide-react";
 import Image from "next/image";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +23,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { admin } from "@/content/admin";
-import { deleteMenuItem, saveMenuItem, setAvailability } from "@/lib/data/api";
+import { menuQuery, useDeleteMenuItem, useSaveMenuItem, useSetAvailability } from "@/lib/data/queries";
 import { LOW_STOCK } from "@/lib/data/stats";
-import { useCatalog } from "@/lib/data/store";
 import type { Category, MenuItemRecord } from "@/lib/data/types";
 import MenuItemForm, { fromValues, type MenuFormValues } from "./MenuItemForm";
 import PageHeader from "./PageHeader";
+import QueryGate from "./QueryGate";
+import { MenuTableSkeleton } from "./skeletons";
 
 const t = admin.menu;
 const eur = new Intl.NumberFormat(admin.common.locale, { style: "currency", currency: admin.common.currency });
@@ -43,8 +45,14 @@ function SortHeader({ label, onClick, sorted }: { label: string; onClick: () => 
 }
 
 /** Menu CRUD: TanStack Table + add/edit sheet + delete confirmation. */
+const NONE: MenuItemRecord[] = [];
+
 export default function MenuTable() {
-  const menu = useCatalog((s) => s.menu);
+  const menuQ = useQuery(menuQuery());
+  const menu = menuQ.data ?? NONE;
+  const save = useSaveMenuItem();
+  const remove = useDeleteMenuItem();
+  const { mutate: toggleAvailable } = useSetAvailability();
   const router = useRouter();
   const params = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -109,7 +117,7 @@ export default function MenuTable() {
         header: t.columns.available,
         enableGlobalFilter: false,
         cell: ({ row: { original: m } }) => (
-          <Switch checked={m.available} onCheckedChange={(v) => void setAvailability(m.id, v)} aria-label={t.availableLabel(m.name)} />
+          <Switch checked={m.available} onCheckedChange={(v) => toggleAvailable({ id: m.id, available: v })} aria-label={t.availableLabel(m.name)} />
         ),
       },
       {
@@ -140,7 +148,7 @@ export default function MenuTable() {
         ),
       },
     ],
-    [],
+    [toggleAvailable],
   );
 
   const table = useReactTable({
@@ -159,9 +167,13 @@ export default function MenuTable() {
   });
 
   const onSave = async (values: MenuFormValues) => {
-    await saveMenuItem(fromValues(values, editing));
-    setFormOpen(false);
-    setStatus(t.saved);
+    try {
+      await save.mutateAsync(fromValues(values, editing));
+      setFormOpen(false);
+      setStatus(t.saved);
+    } catch {
+      // The sheet stays open so nothing typed is lost (error feedback arrives in block 5).
+    }
   };
 
   return (
@@ -199,6 +211,7 @@ export default function MenuTable() {
 
       <p role="status" className="sr-only">{status}</p>
 
+      <QueryGate queries={[menuQ]} skeleton={<MenuTableSkeleton />}>
       <div className="overflow-x-auto rounded-xl border bg-card">
         <Table>
           <TableHeader>
@@ -233,6 +246,7 @@ export default function MenuTable() {
           </TableBody>
         </Table>
       </div>
+      </QueryGate>
 
       <MenuItemForm open={formOpen} item={editing} onOpenChange={setFormOpen} onSave={onSave} />
 
@@ -247,9 +261,15 @@ export default function MenuTable() {
             <Button
               variant="destructive"
               onClick={async () => {
-                if (deleting) await deleteMenuItem(deleting.id);
+                if (deleting) {
+                  try {
+                    await remove.mutateAsync(deleting.id);
+                    setStatus(t.deleted);
+                  } catch {
+                    // Error feedback arrives in block 5.
+                  }
+                }
                 setDeleting(undefined);
-                setStatus(t.deleted);
               }}
             >
               {t.deleteConfirm.confirm}

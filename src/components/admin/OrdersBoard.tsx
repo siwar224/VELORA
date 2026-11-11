@@ -16,17 +16,19 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import { ChevronDown, GripVertical, Pause, Play } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { admin } from "@/content/admin";
-import { updateOrderStatus } from "@/lib/data/api";
-import { useCatalog, useOrders } from "@/lib/data/store";
+import { boardQuery, menuQuery, useMoveOrder } from "@/lib/data/queries";
 import type { MenuItemRecord, Order, OrderStatus } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
 import PageHeader from "./PageHeader";
+import QueryGate from "./QueryGate";
 import { useAdminUi } from "./session";
+import { BoardSkeleton } from "./skeletons";
 
 const t = admin.orders;
 const COLUMNS: OrderStatus[] = ["new", "preparing", "ready", "picked-up"];
@@ -55,7 +57,9 @@ function summary(order: Order, menu: MenuItemRecord[]) {
   return order.lines.map((l) => `${l.qty} × ${menu.find((m) => m.id === l.itemId)?.name ?? l.itemId}`).join(", ");
 }
 
-function OrderCard({ order, menu, overlay = false }: { order: Order; menu: MenuItemRecord[]; overlay?: boolean }) {
+type Move = (id: string, status: OrderStatus) => void;
+
+function OrderCard({ order, menu, onMove, overlay = false }: { order: Order; menu: MenuItemRecord[]; onMove?: Move; overlay?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: order.id, data: { status: order.status, number: order.number }, disabled: overlay });
   return (
     <article
@@ -101,7 +105,7 @@ function OrderCard({ order, menu, overlay = false }: { order: Order; menu: MenuI
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t.moveTo}</DropdownMenuLabel>
             {COLUMNS.filter((c) => c !== order.status).map((c) => (
-              <DropdownMenuItem key={c} className="min-h-11" onSelect={() => void updateOrderStatus(order.id, c)}>
+              <DropdownMenuItem key={c} className="min-h-11" onSelect={() => onMove?.(order.id, c)}>
                 {t.columns[c]}
               </DropdownMenuItem>
             ))}
@@ -112,7 +116,7 @@ function OrderCard({ order, menu, overlay = false }: { order: Order; menu: MenuI
   );
 }
 
-function Column({ status, orders, menu, extra }: { status: OrderStatus; orders: Order[]; menu: MenuItemRecord[]; extra?: number }) {
+function Column({ status, orders, menu, onMove, extra }: { status: OrderStatus; orders: Order[]; menu: MenuItemRecord[]; onMove: Move; extra?: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const headingId = `col-${status}`;
   return (
@@ -126,7 +130,7 @@ function Column({ status, orders, menu, extra }: { status: OrderStatus; orders: 
       <div ref={setNodeRef} className="flex flex-1 flex-col gap-3 px-3 pb-3">
         {orders.length === 0 && <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t.empty}</p>}
         {orders.map((o) => (
-          <OrderCard key={o.id} order={o} menu={menu} />
+          <OrderCard key={o.id} order={o} menu={menu} onMove={onMove} />
         ))}
         {!!extra && <p className="px-1 text-center text-xs text-muted-foreground">+{extra} {t.pickedUpToday.toLowerCase()}</p>}
       </div>
@@ -134,9 +138,14 @@ function Column({ status, orders, menu, extra }: { status: OrderStatus; orders: 
   );
 }
 
+const NONE: never[] = [];
+
 export default function OrdersBoard() {
-  const orders = useOrders((s) => s.orders);
-  const menu = useCatalog((s) => s.menu);
+  const board = useQuery(boardQuery());
+  const menuQ = useQuery(menuQuery());
+  const move = useMoveOrder();
+  const orders: Order[] = board.data ?? NONE;
+  const menu: MenuItemRecord[] = menuQ.data ?? NONE;
   const simulating = useAdminUi((s) => s.simulating);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -175,7 +184,7 @@ export default function OrdersBoard() {
     setActiveId(null);
     const order = byId(e.active.id);
     const target = e.over?.id as OrderStatus | undefined;
-    if (order && target && target !== order.status) void updateOrderStatus(order.id, target);
+    if (order && target && target !== order.status) move.mutate({ id: order.id, status: target });
   };
   const active = activeId ? byId(activeId) : undefined;
   const pickedShown = columns["picked-up"].slice(0, PICKED_SHOWN);
@@ -192,6 +201,7 @@ export default function OrdersBoard() {
         </Button>
       </PageHeader>
 
+      <QueryGate queries={[board, menuQ]} skeleton={<BoardSkeleton />}>
       <DndContext
         sensors={sensors}
         onDragStart={onDragStart}
@@ -205,6 +215,7 @@ export default function OrdersBoard() {
               key={c}
               status={c}
               menu={menu}
+              onMove={(id, status) => move.mutate({ id, status })}
               orders={c === "picked-up" ? pickedShown : columns[c]}
               extra={c === "picked-up" ? columns[c].length - pickedShown.length : undefined}
             />
@@ -212,6 +223,7 @@ export default function OrdersBoard() {
         </div>
         <DragOverlay dropAnimation={null}>{active ? <OrderCard order={active} menu={menu} overlay /> : null}</DragOverlay>
       </DndContext>
+      </QueryGate>
     </>
   );
 }
