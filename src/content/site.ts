@@ -253,6 +253,8 @@ export const orderAhead = {
   namePlaceholder: "e.g. Camille",
   pickup: "Pickup time",
   submit: "Place order",
+  submitting: "Placing your order…",
+  retry: "Try again",
   close: "Close",
   demoNote: "Demo order: no payment is taken. It appears live in the admin dashboard.",
   successTitle: "Order confirmed",
@@ -265,6 +267,8 @@ export const orderAhead = {
   errors: {
     name: "Please add a name (up to 30 characters).",
     drink: "Please choose a drink.",
+    failed: "We couldn't place your order just now — nothing was charged. Please try again.",
+    unavailable: "That drink just sold out. Please choose another one.",
   },
 } as const;
 

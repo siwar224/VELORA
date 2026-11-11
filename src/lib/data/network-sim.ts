@@ -28,7 +28,7 @@ export const REQUEST_TIMEOUT_MS = 8000;
 
 type NetworkSimState = { latency: LatencyMode; failures: FailureMode };
 
-export const DEFAULT_NETWORK: NetworkSimState = { latency: "normal", failures: "off" };
+export const DEFAULT_NETWORK: NetworkSimState = { latency: "normal", failures: "sometimes" };
 
 export const useNetworkSim = create<NetworkSimState>()(
   persist((): NetworkSimState => ({ ...DEFAULT_NETWORK }), {

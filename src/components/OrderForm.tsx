@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { orderAhead as t, visit } from "@/content/site";
 import { createOrder } from "@/lib/data/api";
 import { effectiveSchedule } from "@/lib/data/schedule";
@@ -50,9 +50,14 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
   const [qty, setQty] = useState(1);
   const [name, setName] = useState("");
   const [slot, setSlot] = useState(0);
-  const [errors, setErrors] = useState<{ name?: string; drink?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; drink?: string; submit?: string }>({});
   const [done, setDone] = useState<{ number: number; time: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Synchronous guard (a double click lands before React re-renders) and one
+  // idempotency key per order: a retry after a timeout reuses it, so the server
+  // returns the order it may already have created instead of a duplicate.
+  const inFlight = useRef(false);
+  const idemKey = useRef<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -61,10 +66,22 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
     if (!drinks.some((d) => d.id === itemId)) errs.drink = t.errors.drink;
     setErrors(errs);
     if (Object.keys(errs).length || !slots[slot]) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
+    idemKey.current ??= crypto.randomUUID();
     setBusy(true);
-    const order = await createOrder({ lines: [{ itemId, qty }], customer: name.trim(), pickupAt: slots[slot].at, source: "online" });
-    setBusy(false);
-    setDone({ number: order.number, time: slots[slot].label });
+    try {
+      const order = await createOrder({ lines: [{ itemId, qty }], customer: name.trim(), pickupAt: slots[slot].at, source: "online" }, idemKey.current);
+      idemKey.current = null;
+      setDone({ number: order.number, time: slots[slot].label });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === "unavailable") idemKey.current = null; // a different order next time
+      setErrors({ submit: code === "unavailable" ? t.errors.unavailable : t.errors.failed });
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
   };
 
   if (done) {
@@ -102,7 +119,10 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
       <select
         id={`${uid}-drink`}
         value={itemId}
-        onChange={(e) => setItemId(e.target.value)}
+        onChange={(e) => {
+          setItemId(e.target.value);
+          idemKey.current = null;
+        }}
         className={field}
         aria-invalid={!!errors.drink}
         aria-describedby={errors.drink ? `${uid}-drink-err` : undefined}
@@ -121,11 +141,17 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
             {t.quantity}
           </span>
           <div role="group" aria-labelledby={`${uid}-qty-label`} className="mt-2 flex items-center border border-espresso/25 bg-white">
-            <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} aria-label={t.decrease} className="size-11 text-xl disabled:opacity-40">
+            <button type="button" onClick={() => {
+                setQty((q) => Math.max(1, q - 1));
+                idemKey.current = null;
+              }} disabled={qty <= 1} aria-label={t.decrease} className="size-11 text-xl disabled:opacity-40">
               −
             </button>
             <output aria-live="polite" className="flex-1 text-center tabular-nums">{qty}</output>
-            <button type="button" onClick={() => setQty((q) => Math.min(4, q + 1))} disabled={qty >= 4} aria-label={t.increase} className="size-11 text-xl disabled:opacity-40">
+            <button type="button" onClick={() => {
+                setQty((q) => Math.min(4, q + 1));
+                idemKey.current = null;
+              }} disabled={qty >= 4} aria-label={t.increase} className="size-11 text-xl disabled:opacity-40">
               +
             </button>
           </div>
@@ -134,7 +160,10 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
           <label htmlFor={`${uid}-slot`} className="eyebrow block text-espresso/75">
             {t.pickup}
           </label>
-          <select id={`${uid}-slot`} value={slot} onChange={(e) => setSlot(Number(e.target.value))} className={field}>
+          <select id={`${uid}-slot`} value={slot} onChange={(e) => {
+              setSlot(Number(e.target.value));
+              idemKey.current = null;
+            }} className={field}>
             {slots.map((s, i) => (
               <option key={s.label} value={i}>
                 {s.label}
@@ -150,7 +179,10 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
       <input
         id={`${uid}-name`}
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setName(e.target.value);
+          idemKey.current = null;
+        }}
         placeholder={t.namePlaceholder}
         autoComplete="given-name"
         maxLength={30}
@@ -162,8 +194,14 @@ export default function OrderForm({ onClose }: { onClose: () => void }) {
 
       <p className="mt-5 text-sm text-espresso/75">{t.demoNote}</p>
 
-      <button type="submit" disabled={busy} className="eyebrow mt-6 flex min-h-12 w-full items-center justify-between bg-espresso px-6 text-cream transition-colors hover:bg-caramel-deep disabled:opacity-60">
-        <span>{t.submit}</span>
+      {errors.submit && (
+        <p role="alert" className="mt-5 border-l-2 border-[#a3341f] pl-3 text-sm text-[#a3341f]">
+          {errors.submit}
+        </p>
+      )}
+
+      <button type="submit" disabled={busy} aria-busy={busy} className="eyebrow mt-6 flex min-h-12 w-full items-center justify-between bg-espresso px-6 text-cream transition-colors hover:bg-caramel-deep disabled:opacity-60">
+        <span>{busy ? t.submitting : errors.submit ? t.retry : t.submit}</span>
         <span className="tabular-nums">{selected ? price(Math.round(selected.price * qty * 100) / 100) : ""}</span>
       </button>
     </form>
