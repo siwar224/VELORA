@@ -6,7 +6,9 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { admin } from "@/content/admin";
-import { createOrder, ensureOrders, getSettings, saveSettings, shopToday } from "@/lib/data/api";
+import { createOrder, getOrders, getSettings, saveSettings } from "@/lib/data/api";
+import { shopToday } from "@/lib/data/schedule";
+import { ensureMocks } from "@/mocks/start";
 import { CUSTOMERS, randomLines } from "@/lib/data/seed";
 import { useCatalog } from "@/lib/data/store";
 import { startSync } from "@/lib/data/sync";
@@ -56,8 +58,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     }
     let stop = () => {};
     (async () => {
+      // READY GATE: wait for the mock server, then load (and, on the first visit, seed) the data.
+      await ensureMocks();
       await useCatalog.persist.rehydrate();
-      await ensureOrders();
+      await getOrders();
       stop = startSync();
       setReady(true);
     })();

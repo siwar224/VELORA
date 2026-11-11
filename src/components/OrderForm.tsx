@@ -2,7 +2,8 @@
 
 import { useId, useMemo, useState, type FormEvent } from "react";
 import { orderAhead as t, visit } from "@/content/site";
-import { createOrder, effectiveSchedule } from "@/lib/data/api";
+import { createOrder } from "@/lib/data/api";
+import { effectiveSchedule } from "@/lib/data/schedule";
 import { useLiveCatalog } from "@/lib/data/live";
 import { openStatus, zonedNow } from "@/lib/hours";
 

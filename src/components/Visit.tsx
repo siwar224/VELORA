@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { brand, visit } from "@/content/site";
-import { effectiveSchedule, shopToday } from "@/lib/data/api";
+import { effectiveSchedule, shopToday } from "@/lib/data/schedule";
 import { openOrderForm, useLiveCatalog } from "@/lib/data/live";
 import type { Settings } from "@/lib/data/types";
 import { openStatus, type OpenStatus } from "@/lib/hours";
