@@ -1,6 +1,6 @@
 # VELOR — Velvet Cold Coffee
 
-**A cinematic, scroll-driven brand site plus a restaurant dashboard, built as a frontend-only portfolio project.**
+**A cinematic, scroll-driven brand site plus a restaurant dashboard, built entirely on the frontend.**
 
 The public site scrubs a 267-frame video of an iced latte on a canvas as you scroll,
 with real HTML text choreographed on the same timeline. Behind it, an `/admin` dashboard
@@ -150,5 +150,5 @@ long-lived immutable caching, and the mock worker with `no-store`. For a custom 
 
 ## About
 
-Designed and built by [@siwar224](https://github.com/siwar224) as a frontend portfolio project. The brand, data and
+Designed and built by [@siwar224](https://github.com/siwar224) as a frontend project. The brand, data and
 orders are fictional. No payment is taken and nothing leaves the browser.
