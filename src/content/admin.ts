@@ -177,6 +177,38 @@ export const admin = {
   errors: {
     loadFailed: "We couldn't load this page.",
     retry: "Retry",
+    retrying: "Retrying…",
+    /** One readable sentence per kind of failure: raw error text is never shown. */
+    reasons: {
+      network: "The connection dropped.",
+      timeout: "The server took too long to answer.",
+      server: "The server had a problem.",
+      validation: "The server refused that change.",
+      "not-found": "That item no longer exists.",
+      "invalid-response": "The server's answer wasn't what we expected.",
+      unknown: "Something went wrong.",
+    },
+    simulatorOn: "The network simulator is on, which can cause this.",
+    openSimulator: "Open the network simulator",
+    notifications: "Notifications",
+    dismiss: "Dismiss notification",
+    /** A background refresh failed; the page keeps showing the last data it has. */
+    refreshFailed: (what: string) => `Couldn't refresh ${what}. Showing the last data we have.`,
+    what: { orders: "the orders", menu: "the menu", settings: "the settings" },
+    /** What failed, for action toasts (the reason sentence is appended). */
+    actions: {
+      moveOrder: (n: number) => `Couldn't move order #${n}.`,
+      saveItem: (name: string) => `Couldn't save “${name}”.`,
+      deleteItem: (name: string) => `Couldn't delete “${name}”.`,
+      availability: (name: string) => `Couldn't update “${name}”.`,
+      saveSettings: "Couldn't save the settings.",
+      closedToday: "Couldn't update “Closed today”.",
+      testOrder: "Couldn't create the test order.",
+    },
+    boot: {
+      title: "The demo server couldn't start",
+      body: "This demo answers its requests with a service worker, and your browser didn't allow one (private windows and some privacy settings block them). Try a normal window, then retry.",
+    },
   },
 
   common: { loading: "Loading…", currency: "EUR", locale: "en-GB" },

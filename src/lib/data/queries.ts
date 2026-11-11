@@ -1,20 +1,12 @@
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  deleteMenuItem,
-  getMenu,
-  getOrders,
-  getSettings,
-  saveMenuItem,
-  saveSettings,
-  setAvailability,
-  updateOrderStatus,
-} from "./api";
+import { queryOptions } from "@tanstack/react-query";
+import { getMenu, getOrders, getSettings } from "./api";
 import type { OrderStatus } from "./types";
 
 /**
- * TanStack Query layer for the admin (the public site doesn't use it). Components
- * call these hooks; the hooks call lib/data/api, which calls fetch(). Keys are per
- * resource so a change only invalidates what it affects.
+ * Query keys and query options for the admin (the public site doesn't use TanStack
+ * Query). Components call these through useQuery; they call lib/data/api, which calls
+ * fetch(). Keys are per resource so a change only invalidates what it affects.
+ * Mutations (with their failure toasts) live in components/admin/mutations.ts.
  */
 
 export const qk = {
@@ -70,45 +62,3 @@ export const periodQuery = () =>
     staleTime: 10_000,
     refetchInterval: ORDERS_REFETCH_MS,
   });
-
-// -------------------------------------------------------------- mutations
-
-export function useMoveOrder() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) => updateOrderStatus(id, status),
-    onSettled: () => qc.invalidateQueries({ queryKey: qk.orders }),
-  });
-}
-
-export function useSaveMenuItem() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: saveMenuItem,
-    onSettled: () => qc.invalidateQueries({ queryKey: qk.menu }),
-  });
-}
-
-export function useDeleteMenuItem() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: deleteMenuItem,
-    onSettled: () => qc.invalidateQueries({ queryKey: qk.menu }),
-  });
-}
-
-export function useSetAvailability() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, available }: { id: string; available: boolean }) => setAvailability(id, available),
-    onSettled: () => qc.invalidateQueries({ queryKey: qk.menu }),
-  });
-}
-
-export function useSaveSettings() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: saveSettings,
-    onSettled: () => qc.invalidateQueries({ queryKey: qk.settings }),
-  });
-}

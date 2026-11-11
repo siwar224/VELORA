@@ -23,10 +23,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { admin } from "@/content/admin";
-import { menuQuery, useDeleteMenuItem, useSaveMenuItem, useSetAvailability } from "@/lib/data/queries";
+import { menuQuery } from "@/lib/data/queries";
 import { LOW_STOCK } from "@/lib/data/stats";
 import type { Category, MenuItemRecord } from "@/lib/data/types";
 import MenuItemForm, { fromValues, type MenuFormValues } from "./MenuItemForm";
+import { useDeleteMenuItem, useSaveMenuItem, useSetAvailability } from "./mutations";
 import PageHeader from "./PageHeader";
 import QueryGate from "./QueryGate";
 import { MenuTableSkeleton } from "./skeletons";
@@ -117,7 +118,7 @@ export default function MenuTable() {
         header: t.columns.available,
         enableGlobalFilter: false,
         cell: ({ row: { original: m } }) => (
-          <Switch checked={m.available} onCheckedChange={(v) => toggleAvailable({ id: m.id, available: v })} aria-label={t.availableLabel(m.name)} />
+          <Switch checked={m.available} onCheckedChange={(v) => toggleAvailable({ id: m.id, name: m.name, available: v })} aria-label={t.availableLabel(m.name)} />
         ),
       },
       {
@@ -172,7 +173,7 @@ export default function MenuTable() {
       setFormOpen(false);
       setStatus(t.saved);
     } catch {
-      // The sheet stays open so nothing typed is lost (error feedback arrives in block 5).
+      // The failure toast (with Retry) comes from the mutation hook; the sheet stays open so nothing typed is lost.
     }
   };
 
@@ -263,10 +264,10 @@ export default function MenuTable() {
               onClick={async () => {
                 if (deleting) {
                   try {
-                    await remove.mutateAsync(deleting.id);
+                    await remove.mutateAsync({ id: deleting.id, name: deleting.name });
                     setStatus(t.deleted);
                   } catch {
-                    // Error feedback arrives in block 5.
+                    // The failure toast (with Retry) comes from the mutation hook.
                   }
                 }
                 setDeleting(undefined);

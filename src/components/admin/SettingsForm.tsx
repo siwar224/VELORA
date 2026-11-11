@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { admin } from "@/content/admin";
-import { settingsQuery, useSaveSettings } from "@/lib/data/queries";
+import { settingsQuery } from "@/lib/data/queries";
 import { shopToday } from "@/lib/data/schedule";
 import type { Settings } from "@/lib/data/types";
+import { useSaveSettings } from "./mutations";
 import PageHeader from "./PageHeader";
 import QueryGate from "./QueryGate";
 import { SettingsSkeleton } from "./skeletons";
@@ -61,7 +62,7 @@ function SettingsEditor({ stored }: { stored: Settings }) {
       dirty.current = false;
       setStatus(t.saved);
     } catch {
-      // Draft is kept so nothing is lost (error feedback arrives in block 5).
+      // The failure toast (with Retry) comes from the mutation hook; the draft is kept.
     }
   };
 

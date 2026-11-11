@@ -22,9 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { admin } from "@/content/admin";
-import { boardQuery, menuQuery, useMoveOrder } from "@/lib/data/queries";
+import { boardQuery, menuQuery } from "@/lib/data/queries";
 import type { MenuItemRecord, Order, OrderStatus } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
+import { useMoveOrder } from "./mutations";
 import PageHeader from "./PageHeader";
 import QueryGate from "./QueryGate";
 import { useAdminUi } from "./session";
@@ -57,7 +58,7 @@ function summary(order: Order, menu: MenuItemRecord[]) {
   return order.lines.map((l) => `${l.qty} × ${menu.find((m) => m.id === l.itemId)?.name ?? l.itemId}`).join(", ");
 }
 
-type Move = (id: string, status: OrderStatus) => void;
+type Move = (order: Order, status: OrderStatus) => void;
 
 function OrderCard({ order, menu, onMove, overlay = false }: { order: Order; menu: MenuItemRecord[]; onMove?: Move; overlay?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: order.id, data: { status: order.status, number: order.number }, disabled: overlay });
@@ -105,7 +106,7 @@ function OrderCard({ order, menu, onMove, overlay = false }: { order: Order; men
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{t.moveTo}</DropdownMenuLabel>
             {COLUMNS.filter((c) => c !== order.status).map((c) => (
-              <DropdownMenuItem key={c} className="min-h-11" onSelect={() => onMove?.(order.id, c)}>
+              <DropdownMenuItem key={c} className="min-h-11" onSelect={() => onMove?.(order, c)}>
                 {t.columns[c]}
               </DropdownMenuItem>
             ))}
@@ -184,7 +185,7 @@ export default function OrdersBoard() {
     setActiveId(null);
     const order = byId(e.active.id);
     const target = e.over?.id as OrderStatus | undefined;
-    if (order && target && target !== order.status) move.mutate({ id: order.id, status: target });
+    if (order && target && target !== order.status) move.mutate({ id: order.id, number: order.number, status: target });
   };
   const active = activeId ? byId(activeId) : undefined;
   const pickedShown = columns["picked-up"].slice(0, PICKED_SHOWN);
@@ -215,7 +216,7 @@ export default function OrdersBoard() {
               key={c}
               status={c}
               menu={menu}
-              onMove={(id, status) => move.mutate({ id, status })}
+              onMove={(o, status) => move.mutate({ id: o.id, number: o.number, status })}
               orders={c === "picked-up" ? pickedShown : columns[c]}
               extra={c === "picked-up" ? columns[c].length - pickedShown.length : undefined}
             />

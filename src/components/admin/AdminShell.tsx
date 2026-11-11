@@ -4,7 +4,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Activity, Menu as MenuIcon, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { admin } from "@/content/admin";
@@ -15,11 +15,15 @@ import { shopToday } from "@/lib/data/schedule";
 import { ensureMocks } from "@/mocks/start";
 import { CUSTOMERS, randomLines } from "@/lib/data/seed";
 import { startSync } from "@/lib/data/sync";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import AdminSidebar from "./AdminSidebar";
 import CommandPalette from "./CommandPalette";
+import ErrorPanel from "./ErrorPanel";
+import { showFailure } from "./errors";
 import { isActive, NAV } from "./nav";
 import { isSignedIn, signOut, useAdminUi } from "./session";
+import Toaster from "./Toaster";
 
 /** Ready once the demo session is confirmed and the stores are loaded (and seeded). */
 const ReadyContext = createContext(false);
@@ -51,10 +55,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const qc = useQueryClient();
-  const [ready, setReady] = useState(false);
+  const [boot, setBoot] = useState<"loading" | "ready" | "error">("loading");
+  const ready = boot === "ready";
+  const rebootRef = useRef<() => void>(() => {});
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [toast, setToast] = useState("");
   const { collapsed: savedCollapsed, simulating } = useAdminUi();
   const network = useNetworkSim();
   const [narrow, setNarrow] = useState(false);
@@ -66,10 +71,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       return;
     }
     let stop = () => {};
-    (async () => {
+    let alive = true;
+    const start = async () => {
+      setBoot("loading");
       // READY GATE: nothing renders (so nothing requests) until the mock server is up.
-      await ensureMocks();
+      try {
+        await ensureMocks();
+      } catch {
+        if (alive) setBoot("error"); // e.g. service workers blocked: show a Retry panel
+        return;
+      }
+      if (!alive) return;
       // Changes made in other tabs (or the public site) refresh the matching queries.
+      stop();
       stop = startSync(
         (topic) => {
           if (topic === "orders") void qc.invalidateQueries({ queryKey: qk.orders });
@@ -80,9 +94,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         },
         { rehydrate: false },
       );
-      setReady(true);
-    })();
-    return () => stop();
+      setBoot("ready");
+    };
+    rebootRef.current = () => void start();
+    void start();
+    return () => {
+      alive = false;
+      stop();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
@@ -96,19 +115,23 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, []);
   const collapsed = savedCollapsed ?? narrow;
 
-  const notify = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast((t) => (t === msg ? "" : t)), 5000);
-  }, []);
+  const notify = useCallback((msg: string) => void toast.info(msg), []);
 
-  const newOrder = useCallback(async () => {
-    try {
-      const o = await simulateOrder(qc);
-      if (o) notify(admin.orders.newOrderToast(o.number, o.customer));
-    } catch {
-      // A failed simulated order is simply skipped (the board stays as it was).
-    }
-  }, [notify, qc]);
+  /** Add a simulated order. The background timer skips a failed one quietly; the palette's manual one reports it. */
+  const newOrder = useCallback(
+    async (manual = false) => {
+      const attempt = async (): Promise<void> => {
+        try {
+          const o = await simulateOrder(qc);
+          if (o) notify(admin.orders.newOrderToast(o.number, o.customer));
+        } catch (error) {
+          if (manual) showFailure(admin.errors.actions.testOrder, error, () => void attempt());
+        }
+      };
+      await attempt();
+    },
+    [notify, qc],
+  );
 
   // ---- Incoming-order simulator: every 20–40 s while on (not under reduced motion).
   useEffect(() => {
@@ -132,8 +155,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       await saveSettings({ ...s, closedToday: { ...s.closedToday, on, date: today } });
       void qc.invalidateQueries({ queryKey: qk.settings });
       notify(on ? `${admin.settings.closedToday}: ${admin.settings.closed}` : `${admin.settings.closedToday}: ${admin.settings.open}`);
-    } catch {
-      // Error feedback arrives in block 5.
+    } catch (error) {
+      showFailure(admin.errors.actions.closedToday, error, () => void toggleClosed());
     }
   };
 
@@ -144,6 +167,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const title = NAV.find((n) => isActive(pathname, n.href))?.label ?? admin.meta.title;
 
+  if (boot === "error") {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6">
+        <ErrorPanel title={admin.errors.boot.title} body={admin.errors.boot.body} onRetry={() => rebootRef.current()} />
+      </div>
+    );
+  }
   if (!ready) {
     return (
       <div className="flex min-h-svh items-center justify-center text-muted-foreground" role="status">
@@ -217,16 +247,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         onNetwork={(failures) => useNetworkSim.setState({ failures })}
-        onNewOrder={newOrder}
+        onNewOrder={() => void newOrder(true)}
         onToggleSimulator={() => useAdminUi.setState({ simulating: !simulating })}
         onToggleClosed={toggleClosed}
         onLogout={logout}
       />
 
-      {/* New-order notifications (announced politely to screen readers). */}
-      <div role="status" aria-live="polite" className="pointer-events-none fixed right-4 bottom-4 z-50">
-        {toast && <p className="rounded-md bg-espresso px-4 py-3 text-sm text-cream shadow-lg">{toast}</p>}
-      </div>
+      {/* Notifications: new orders, failed actions (with Retry). Polite live region. */}
+      <Toaster />
     </ReadyContext.Provider>
   );
 }
